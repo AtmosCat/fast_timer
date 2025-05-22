@@ -1,4 +1,3 @@
-
 class TimerRecord {
   final int? id;
   final int timerId;

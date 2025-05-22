@@ -1,4 +1,4 @@
-import 'package:fast_timer/data/model/dao/timer_record_dao.dart';
+import '../dao/timer_record_dao.dart';
 import '../model/timer_record.dart';
 
 class TimerRecordRepository {
@@ -6,51 +6,10 @@ class TimerRecordRepository {
 
   TimerRecordRepository(this._dao);
 
-  Future<int> addTimerRecord(TimerRecord record) async {
-    try {
-      return await _dao.insert(record);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<List<TimerRecord>> fetchAllTimerRecords() async {
-    try {
-      return await _dao.getAll();
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<List<TimerRecord>> fetchRecordsByTimerId(int timerId) async {
-    try {
-      return await _dao.getByTimerId(timerId);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<TimerRecord?> fetchTimerRecordById(int id) async {
-    try {
-      return await _dao.getById(id);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<int> updateTimerRecord(TimerRecord record) async {
-    try {
-      return await _dao.update(record);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<int> deleteTimerRecord(int id) async {
-    try {
-      return await _dao.delete(id);
-    } catch (e) {
-      rethrow;
-    }
-  }
+  Future<int> add(TimerRecord record) => _dao.insert(record);
+  Future<List<TimerRecord>> fetchAll() => _dao.getAll();
+  Future<List<TimerRecord>> fetchByTimerId(int timerId) => _dao.getByTimerId(timerId);
+  Future<TimerRecord?> fetchById(int id) => _dao.getById(id);
+  Future<int> update(TimerRecord record) => _dao.update(record);
+  Future<int> delete(int id) => _dao.delete(id);
 }

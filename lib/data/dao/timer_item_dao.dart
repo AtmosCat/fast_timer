@@ -1,5 +1,5 @@
-import 'package:fast_timer/data/model/timer_item.dart';
 import 'package:fast_timer/data/repository/sql_database.dart';
+import '../model/timer_item.dart';
 
 class TimerItemDao {
   final String tableName = 'timer_items';
