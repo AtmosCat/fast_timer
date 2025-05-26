@@ -1,36 +1,17 @@
-import 'package:fast_timer/ui/pages/timer_create_page.dart';
+import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
+import 'package:fast_timer/ui/pages/widgets/custom_bottom_navigation_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fast_timer/theme/colors.dart';
+import 'package:fast_timer/ui/pages/timer_create_page.dart';
+import 'package:fast_timer/ui/pages/timer_start_page.dart';
 
-class TimerListPage extends StatelessWidget {
+class TimerListPage extends ConsumerWidget {
   const TimerListPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // 더미 데이터
-    final timers = [
-      {
-        'speed': 1.5,
-        'title': '중간고사 타이머',
-        'current': '01:49:30',
-        'total': '01:50:00',
-        'progress': 0.98,
-      },
-      {
-        'speed': 2.0,
-        'title': '퍼즐 도전',
-        'current': '00:09:12',
-        'total': '00:10:00',
-        'progress': 0.92,
-      },
-      {
-        'speed': 1.2,
-        'title': '논리학 과제',
-        'current': '00:23:10',
-        'total': '00:30:00',
-        'progress': 0.77,
-      },
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final timerListAsync = ref.watch(timerItemListViewModelProvider);
 
     return Scaffold(
       backgroundColor: AppColor.scaffoldGray.of(context),
@@ -48,50 +29,90 @@ class TimerListPage extends StatelessWidget {
         centerTitle: true,
         leading: IconButton(
           onPressed: () {
-            // 뒤로가기 액션
+            // 메뉴 또는 뒤로가기 액션
           },
           icon: Icon(Icons.menu, color: AppColor.defaultBlack.of(context)),
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 16,
-                  horizontal: 16,
+        child: timerListAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('타이머를 불러올 수 없습니다.\n$e')),
+          data: (timers) {
+            if (timers.isEmpty) {
+              return Center(
+                child: Text(
+                  '등록된 타이머가 없습니다.\n오른쪽 아래 + 버튼을 눌러 타이머를 추가해보세요!',
+                  style: TextStyle(
+                    color: AppColor.gray20.of(context),
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                itemCount: timers.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  final timer = timers[index];
-                  return TimerCard(
-                    speed: timer['speed'] as double,
-                    title: timer['title'] as String,
-                    currentTime: timer['current'] as String,
-                    totalTime: timer['total'] as String,
-                    progress: timer['progress'] as double,
-                  );
-                },
-              ),
-            ),
-          ],
+              );
+            }
+            return ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              itemCount: timers.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 16),
+              itemBuilder: (context, index) {
+                final timer = timers[index];
+                final totalSeconds =
+                    timer.hour * 3600 + timer.minute * 60 + timer.second;
+                final currentTime = _formatTime(
+                  totalSeconds,
+                ); // 실제 앱에서는 진행중 시간으로 대체
+                final totalTime = _formatTime(totalSeconds);
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => TimerStartPage(
+                              timerName: timer.name,
+                              targetSeconds: totalSeconds,
+                              timerId: timer.id!,
+                            ),
+                      ),
+                    );
+                  },
+                  child: TimerCard(
+                    speed: 1.0, // 실제 배속 정보가 있다면 적용
+                    title: timer.name,
+                    currentTime: currentTime,
+                    totalTime: totalTime,
+                    progress: 1.0, // 실제 진행률로 대체
+                  ),
+                );
+              },
+            );
+          },
         ),
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColor.primaryOrange.of(context),
-        onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) {
-            return TimerCreatePage();
-          }));
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const TimerCreatePage()),
+          );
+          // 타이머 생성 후 돌아오면 리스트 새로고침
+          ref.invalidate(timerItemListViewModelProvider);
         },
         child: const Icon(Icons.add, color: Colors.white),
         shape: const CircleBorder(),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: const _CustomBottomNavigationBar(),
+      bottomNavigationBar: CustomBottomNavigationBar(activeIndex: 0),
     );
+  }
+
+  String _formatTime(int seconds) {
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    return "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
   }
 }
 
@@ -121,38 +142,43 @@ class TimerCard extends StatelessWidget {
         padding: const EdgeInsets.all(20.0),
         child: Stack(
           children: [
-            // 옵션 메뉴 (오른쪽 상단)
-            Positioned(
-              right: 0,
-              top: 0,
-              child: Icon(Icons.more_vert, color: AppColor.gray20.of(context)),
-            ),
+            // // 옵션 메뉴 (오른쪽 상단)
+            // Positioned(
+            //   right: 0,
+            //   top: 0,
+            //   child: Icon(Icons.more_vert, color: AppColor.gray20.of(context)),
+            // ),
             // 메인 내용
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    // 배속 배지
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColor.primaryOrange.of(context),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'x${speed.toStringAsFixed(1)}배속',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    // // 배속 배지
+                    // Container(
+                    //   padding: const EdgeInsets.symmetric(
+                    //     horizontal: 8,
+                    //     vertical: 2,
+                    //   ),
+                    //   decoration: BoxDecoration(
+                    //     color: AppColor.primaryOrange.of(context),
+                    //     borderRadius: BorderRadius.circular(8),
+                    //   ),
+                    //   child: Text(
+                    //     'x${speed.toStringAsFixed(1)}배속',
+                    //     style: const TextStyle(
+                    //       color: Colors.white,
+                    //       fontSize: 12,
+                    //       fontWeight: FontWeight.bold,
+                    //     ),
+                    //   ),
+                    // ),
+                    Image.asset(
+                      'lib/assets/icons/run.png',
+                      height: 27,
+                      color: AppColor.primaryOrange.of(context),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     // 타이머 제목
                     Expanded(
                       child: Text(
@@ -175,7 +201,7 @@ class TimerCard extends StatelessWidget {
                       TextSpan(
                         text: currentTime,
                         style: TextStyle(
-                          color: AppColor.gray30.of(context),
+                          color: AppColor.defaultBlack.of(context),
                           fontSize: 30, // 현재 시간: 더 크게
                           fontWeight: FontWeight.w500,
                           letterSpacing: 1.2,
@@ -184,7 +210,7 @@ class TimerCard extends StatelessWidget {
                       TextSpan(
                         text: ' / ',
                         style: TextStyle(
-                          color: AppColor.gray30.of(context),
+                          color: AppColor.defaultBlack.of(context),
                           fontSize: 22,
                           fontWeight: FontWeight.normal,
                         ),
@@ -216,85 +242,6 @@ class TimerCard extends StatelessWidget {
                 ),
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CustomBottomNavigationBar extends StatelessWidget {
-  const _CustomBottomNavigationBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 100,
-      decoration: BoxDecoration(
-        color: AppColor.containerWhite.of(context),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColor.shadowBlack.of(context).withOpacity(0.06),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          _BottomNavTab(
-            icon: Icons.timer_rounded,
-            label: '타이머 설정',
-            isActive: true,
-          ),
-          _BottomNavTab(
-            icon: Icons.directions_run,
-            label: '질주 기록',
-            isActive: false,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BottomNavTab extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isActive;
-
-  const _BottomNavTab({
-    required this.icon,
-    required this.label,
-    required this.isActive,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color =
-        isActive
-            ? AppColor.primaryOrange.of(context)
-            : AppColor.gray20.of(context);
-    return Expanded(
-      child: InkWell(
-        onTap: () {
-          // 탭 이동 액션
-        },
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 14,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-            const SizedBox(height: 12),
           ],
         ),
       ),

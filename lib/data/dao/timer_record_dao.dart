@@ -72,14 +72,19 @@ class TimerRecordDao {
   Future<int> delete(int id) async {
     try {
       final db = await SqlDatabase.instance.database;
-      return await db.delete(
-        tableName,
-        where: 'id = ?',
-        whereArgs: [id],
-      );
+      return await db.delete(tableName, where: 'id = ?', whereArgs: [id]);
     } catch (e) {
       print('TimerRecord delete error: $e');
       rethrow;
     }
+  }
+
+  Future<void> deleteByTimerId(int timerId) async {
+    final db = await SqlDatabase.instance.database;
+    await db.delete(
+      'timer_records',
+      where: 'timerId = ?',
+      whereArgs: [timerId],
+    );
   }
 }

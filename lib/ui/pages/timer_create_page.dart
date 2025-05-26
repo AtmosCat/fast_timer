@@ -1,22 +1,136 @@
+import 'package:fast_timer/data/dao/timer_item_dao.dart';
+import 'package:fast_timer/data/model/timer_item.dart';
+import 'package:fast_timer/data/repository/timer_item_repository.dart';
+import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
+import 'package:fast_timer/ui/pages/timer_list_page.dart';
+import 'package:fast_timer/ui/pages/timer_start_page.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fast_timer/theme/colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class TimerCreatePage extends StatefulWidget {
-  const TimerCreatePage({super.key});
+  final TimerItem? timerItem; // 추가
+
+  const TimerCreatePage({super.key, this.timerItem});
 
   @override
   State<TimerCreatePage> createState() => _TimerCreatePageState();
 }
 
 class _TimerCreatePageState extends State<TimerCreatePage> {
-  int _selectedHour = 1;
-  int _selectedMinute = 50;
-  int _selectedSecond = 0;
-  final TextEditingController _nameController = TextEditingController(text: "");
+  late int _selectedHour;
+  late int _selectedMinute;
+  late int _selectedSecond;
+  final TextEditingController _nameController = TextEditingController();
+
+  late final TimerItemRepository _timerItemRepository;
+
+  @override
+  void initState() {
+    super.initState();
+    _timerItemRepository = TimerItemRepository(TimerItemDao());
+    if (widget.timerItem != null) {
+      _nameController.text = widget.timerItem!.name;
+      _selectedHour = widget.timerItem!.hour;
+      _selectedMinute = widget.timerItem!.minute;
+      _selectedSecond = widget.timerItem!.second;
+    } else {
+      _selectedHour = 1;
+      _selectedMinute = 50;
+      _selectedSecond = 0;
+    }
+  }
+
+  void _onSavePressed() async {
+    final timerName = _nameController.text.trim();
+    final totalSeconds =
+        _selectedHour * 3600 + _selectedMinute * 60 + _selectedSecond;
+
+    if (timerName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("타이머 이름을 입력해 주세요."),
+          backgroundColor: AppColor.containerGray30.of(context),
+        ),
+      );
+      return;
+    }
+    if (totalSeconds == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("타이머 시간을 1초 이상으로 설정해 주세요."),
+          backgroundColor: AppColor.containerGray30.of(context),
+        ),
+      );
+      return;
+    }
+
+    if (widget.timerItem != null) {
+      // 수정 모드
+      final updatedTimer = widget.timerItem!.copyWith(
+        name: timerName,
+        hour: _selectedHour,
+        minute: _selectedMinute,
+        second: _selectedSecond,
+      );
+      await _timerItemRepository.update(updatedTimer);
+
+      // **Provider invalidate로 리스트 새로고침**
+      if (context.mounted) {
+        final container = ProviderScope.containerOf(context, listen: false);
+        container.invalidate(timerItemListViewModelProvider);
+
+        // **수정 완료 메시지 표시**
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("타이머가 수정되었습니다."),
+            backgroundColor: AppColor.primaryOrange.of(context),
+          ),
+        );
+
+        // **TimerListPage로 이동**
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const TimerListPage()),
+          (route) => false,
+        );
+      }
+    } else {
+      // 생성 모드
+      final timerItem = TimerItem(
+        name: timerName,
+        hour: _selectedHour,
+        minute: _selectedMinute,
+        second: _selectedSecond,
+      );
+      final insertedId = await _timerItemRepository.add(timerItem);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("타이머가 생성되었습니다."),
+            backgroundColor: AppColor.primaryOrange.of(context),
+          ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => TimerStartPage(
+                  timerId: insertedId,
+                  timerName: timerName,
+                  targetSeconds: totalSeconds,
+                ),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isEdit = widget.timerItem != null;
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -49,18 +163,16 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
           ),
         ),
         body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0), // 전체 패딩
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 18),
-              // 시간 피커 라벨과 피커를 한 Row로 묶어서 정렬
               SizedBox(
-                height: 250, // 원하는 높이
+                height: 350,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // 시간 피커
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -85,7 +197,6 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                         ],
                       ),
                     ),
-                    // 콜론
                     Center(
                       child: Text(
                         "\n:",
@@ -96,7 +207,6 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                         ),
                       ),
                     ),
-                    // 분 피커
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -132,7 +242,6 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                         ),
                       ),
                     ),
-                    // 초 피커
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -161,9 +270,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 32),
-              // 타이머 이름
               Text(
                 "타이머 이름",
                 style: TextStyle(
@@ -211,15 +318,12 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                 ),
               ),
               const Spacer(),
-              // 생성 버튼
               Center(
                 child: SizedBox(
                   width: double.infinity,
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // 타이머 생성 로직
-                    },
+                    onPressed: _onSavePressed,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColor.primaryOrange.of(context),
                       shape: RoundedRectangleBorder(
@@ -227,8 +331,8 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      "타이머 생성",
+                    child: Text(
+                      isEdit ? "타이머 수정" : "타이머 생성",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 17,
@@ -239,26 +343,9 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 60),
+              const SizedBox(height: 70),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PickerColon extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2.0),
-      child: Text(
-        ":",
-        style: TextStyle(
-          color: AppColor.gray20.of(context),
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );

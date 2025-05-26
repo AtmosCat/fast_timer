@@ -10,27 +10,28 @@ final timerItemRepositoryProvider = Provider<TimerItemRepository>((ref) {
 
 // AsyncNotifier for TimerItem List
 class TimerItemListNotifier extends AsyncNotifier<List<TimerItem>> {
-  late final TimerItemRepository _repo;
-
   @override
   Future<List<TimerItem>> build() async {
-    _repo = ref.read(timerItemRepositoryProvider);
-    return await _repo.fetchAll();
+    final repo = ref.read(timerItemRepositoryProvider);
+    return await repo.fetchAll();
   }
 
   Future<void> addItem(TimerItem item) async {
-    await _repo.add(item);
-    state = AsyncData(await _repo.fetchAll());
+    final repo = ref.read(timerItemRepositoryProvider);
+    await repo.add(item);
+    state = AsyncData(await repo.fetchAll());
   }
 
   Future<void> updateItem(TimerItem item) async {
-    await _repo.update(item);
-    state = AsyncData(await _repo.fetchAll());
+    final repo = ref.read(timerItemRepositoryProvider);
+    await repo.update(item);
+    state = AsyncData(await repo.fetchAll());
   }
 
   Future<void> deleteItem(int id) async {
-    await _repo.delete(id);
-    state = AsyncData(await _repo.fetchAll());
+    final repo = ref.read(timerItemRepositoryProvider);
+    await repo.delete(id);
+    state = AsyncData(await repo.fetchAll());
   }
 }
 

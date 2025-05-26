@@ -13,6 +13,16 @@ class TimerItem {
     required this.second,
   });
 
+  TimerItem copyWith({String? name, int? hour, int? minute, int? second}) {
+    return TimerItem(
+      id: id,
+      name: name ?? this.name,
+      hour: hour ?? this.hour,
+      minute: minute ?? this.minute,
+      second: second ?? this.second,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     final map = <String, dynamic>{
       'name': name,
