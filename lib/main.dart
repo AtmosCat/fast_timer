@@ -7,6 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+// --- navigatorKey만 필요하다면 유지, 아니면 이것도 삭제 가능 ---
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -31,6 +34,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      // navigatorKey: navigatorKey, // 알림 라우팅용이 아니면 이 줄도 지워도 됩니다.
       locale: const Locale('ko', 'KR'),
       supportedLocales: const [Locale('ko', 'KR')],
       localizationsDelegates: [
@@ -38,15 +42,12 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-
       title: '빠른 타이머',
       theme: lightTheme.copyWith(extensions: [AppColors.lightColorScheme]),
-      darkTheme: darkTheme.copyWith(
-        extensions: [AppColors.darkColorScheme],
-      ),
+      darkTheme: darkTheme.copyWith(extensions: [AppColors.darkColorScheme]),
       themeMode: ThemeMode.system,
       debugShowCheckedModeBanner: false,
-      home: TimerListPage(), // 또는 TimerListPage()로 대체 가능
+      home: TimerListPage(),
     );
   }
 }

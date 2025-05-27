@@ -54,13 +54,16 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
 
   void _startTimer() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         _elapsedReal = DateTime.now().difference(_realStartTime);
         final elapsed = _elapsedReal.inMilliseconds * widget.speed;
         final elapsedSeconds = (elapsed / 1000).floor();
         _remainingSeconds = max(widget.targetSeconds - elapsedSeconds, 0);
         _progress = _remainingSeconds / widget.targetSeconds;
+
+        // 남은 시간 계산
+        final remainingSeconds = _remainingSeconds;
 
         if (_remainingSeconds <= 0) {
           _timer?.cancel();
@@ -90,6 +93,12 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
       _timerState = TimerState.running;
     });
     _startTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   Future<String?> _showFinishDialog(BuildContext context) {
@@ -317,12 +326,6 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
     );
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
   String _formatTime(int seconds) {
     final h = seconds ~/ 3600;
     final m = (seconds % 3600) ~/ 60;
@@ -366,11 +369,11 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                    Image.asset(
-                      'lib/assets/icons/run.png',
-                      height: 27,
-                      color: AppColor.gray30.of(context),
-                    ),
+                  Image.asset(
+                    'lib/assets/icons/run.png',
+                    height: 27,
+                    color: AppColor.gray30.of(context),
+                  ),
                   const SizedBox(width: 10),
                   Text(
                     widget.timerName,
@@ -524,7 +527,7 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
                                   ),
                                   (route) => false,
                                 );
-                              } 
+                              }
                             },
                           ),
                         ]
