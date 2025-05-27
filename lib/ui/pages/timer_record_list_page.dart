@@ -51,12 +51,8 @@ class _TimerRecordListPageState extends State<TimerRecordListPage> {
         ),
         centerTitle: true,
         leading: IconButton(
-          onPressed: () {
-          },
-          icon: Icon(
-            Icons.menu,
-            color: AppColor.defaultBlack.of(context),
-          ),
+          onPressed: () {},
+          icon: Icon(Icons.menu, color: AppColor.defaultBlack.of(context)),
         ),
       ),
       body: SafeArea(
@@ -162,7 +158,6 @@ class _TimerRecordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalSeconds = timer.hour * 3600 + timer.minute * 60 + timer.second;
     return Material(
       color: AppColor.containerWhite.of(context),
       borderRadius: BorderRadius.circular(16),
@@ -198,7 +193,7 @@ class _TimerRecordCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          _formatHMS(totalSeconds),
+                          _formatHMS(timer.targetSeconds),
                           style: TextStyle(
                             color: AppColor.defaultBlack.of(context),
                             fontSize: 16,

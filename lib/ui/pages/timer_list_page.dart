@@ -1,3 +1,5 @@
+import 'package:fast_timer/data/model/timer_item.dart';
+import 'package:fast_timer/data/providers/timer_item_provider.dart';
 import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
 import 'package:fast_timer/ui/pages/timer_running_page.dart';
 import 'package:fast_timer/ui/pages/widgets/custom_bottom_navigation_bar.dart';
@@ -9,9 +11,24 @@ import 'package:fast_timer/ui/pages/timer_create_page.dart';
 class TimerListPage extends ConsumerWidget {
   const TimerListPage({super.key});
 
+  // 실시간 남은 시간 계산 (isRunning일 때만)
+  int _elapsedFor(TimerItem timer) {
+    if (!timer.isRunning) return 0;
+    // 실제로는 타이머 시작 시각, 배속 등 추가 정보 필요
+    // 간단 예시: DateTime.now() - timer.lastStartedAt
+    return 0; // 구현 필요
+  }
+
+  // 실시간 진행률 계산 (isRunning일 때만)
+  double _progressFor(TimerItem timer) {
+    if (!timer.isRunning) return timer.progress;
+    // 실제로는 남은 시간/전체 시간으로 계산
+    return 1.0; // 구현 필요
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final timerListAsync = ref.watch(timerItemListViewModelProvider);
+    final timers = ref.watch(timerItemListViewModelProvider);
 
     return Scaffold(
       backgroundColor: AppColor.scaffoldGray.of(context),
@@ -35,70 +52,61 @@ class TimerListPage extends ConsumerWidget {
         ),
       ),
       body: SafeArea(
-        child: timerListAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('타이머를 불러올 수 없습니다.\n$e')),
-          data: (timers) {
-            if (timers.isEmpty) {
-              return Center(
-                child: Text(
-                  '등록된 타이머가 없습니다.\n오른쪽 아래 + 버튼을 눌러 타이머를 추가해보세요!',
-                  style: TextStyle(
-                    color: AppColor.gray20.of(context),
-                    fontSize: 16,
+        child:
+            timers.isEmpty
+                ? Center(
+                  child: Text('등록된 타이머가 없습니다.\n오른쪽 아래 + 버튼을 눌러 타이머를 추가해보세요!'),
+                )
+                : ListView.separated(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 16,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              );
-            }
-            return ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-              itemCount: timers.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
-              itemBuilder: (context, index) {
-                final timer = timers[index];
-                final totalSeconds = 
-                    timer.hour * 3600 + timer.minute * 60 + timer.second;
-                final currentTime = _formatTime(
-                  totalSeconds,
-                ); // 실제 앱에서는 진행중 시간으로 대체
-                final totalTime = _formatHMS(totalSeconds);
-                return GestureDetector(
-                  onTap: () {
-                    final int targetSeconds =
-                        timer.hour * 3600 + timer.minute * 60 + timer.second;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => TimerRunningPage(
-                              timerId: timer.id!,
-                              timerName: timer.name,
-                              targetSeconds: targetSeconds,
-                              speed: timer.speed,
+                  itemCount: timers.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final timer = timers[index];
+                    return GestureDetector(
+                      onTap:
+                          () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => TimerRunningPage(
+                                    timerId: timer.id!,
+                                    speed: timer.speed,
+                                    timerName: timer.name,
+                                    targetSeconds: timer.targetSeconds,
+                                  ),
                             ),
+                          ),
+                      child: TimerCard(
+                        speed: timer.speed,
+                        title: timer.name,
+                        currentTime: _formatTime(
+                          timer.isRunning
+                              ? (timer.remainingSeconds -
+                                  _elapsedFor(timer)) // 실시간 계산
+                              : timer.remainingSeconds,
+                        ),
+                        totalTime: _formatHMS(timer.targetSeconds),
+                        progress:
+                            timer.isRunning
+                                ? _progressFor(timer)
+                                : timer.progress,
+                        isRunning: timer.isRunning,
+                        onReset:
+                            () => ref
+                                .read(timerItemListViewModelProvider.notifier)
+                                .resetTimer(timer.id!),
+                        onToggle:
+                            () => ref
+                                .read(timerItemListViewModelProvider.notifier)
+                                .toggleTimer(timer.id!, !timer.isRunning),
                       ),
                     );
                   },
-                  child: TimerCard(
-                    speed: timer.speed,
-                    title: timer.name,
-                    currentTime: currentTime, // 남은 시간
-                    totalTime: totalTime, // 전체 시간
-                    progress: timer.progress, // 진행률 (0.0~1.0)
-                    isRunning: timer.isRunning, // 실제 상태값
-                    onReset: () {
-                      // 초기화 로직
-                    },
-                    onToggle: () {
-                      // 재생/일시정지 토글 로직
-                    },
-                  ),
-                );
-              },
-            );
-          },
-        ),
+                ),
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColor.primaryOrange.of(context),
@@ -146,8 +154,7 @@ class TimerCard extends StatelessWidget {
   final double progress;
   final bool isRunning;
   final VoidCallback onReset;
-  final VoidCallback onToggle; // 재생/일시정지
-  // 필요시 onTap 등 추가
+  final VoidCallback onToggle;
 
   const TimerCard({
     super.key,
@@ -172,12 +179,8 @@ class TimerCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 상단: 배속 칩 + 이름 + 전체 시간
             Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // 배속 칩
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -197,23 +200,17 @@ class TimerCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                // 타이머 이름
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: AppColor.defaultBlack.of(context),
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: AppColor.defaultBlack.of(context),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
-                Spacer(),
-                // Image.asset(
-                //   'lib/assets/icons/timer.png',
-                //   color: AppColor.gray10.of(context),
-                //   height: 14,
-                // ),
-                // SizedBox(width: 4),
                 Text(
                   "총 $totalTime",
                   style: TextStyle(
@@ -225,10 +222,8 @@ class TimerCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            // 하단: 남은 시간 + 버튼들
             Row(
               children: [
-                // 남은 시간 (크게)
                 Expanded(
                   child: Text(
                     currentTime,
@@ -240,7 +235,6 @@ class TimerCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                // 버튼들
                 Row(
                   children: [
                     _smallCircleButton(
@@ -262,7 +256,6 @@ class TimerCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            // ProgressBar
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
@@ -303,4 +296,26 @@ class TimerCard extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _smallCircleButton({
+  required IconData icon,
+  required Color color,
+  required VoidCallback onPressed,
+}) {
+  return SizedBox(
+    width: 36,
+    height: 36,
+    child: ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        shape: const CircleBorder(),
+        elevation: 0,
+        padding: EdgeInsets.zero,
+        minimumSize: const Size(36, 36),
+      ),
+      child: Icon(icon, color: Colors.white, size: 20),
+    ),
+  );
 }

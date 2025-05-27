@@ -70,7 +70,10 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('취소', style: TextStyle(color: Colors.black87)),
+                child: const Text(
+                  '취소',
+                  style: TextStyle(color: Colors.black87),
+                ),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
@@ -118,7 +121,10 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('취소', style: TextStyle(color: Colors.black87)),
+                child: const Text(
+                  '취소',
+                  style: TextStyle(color: Colors.black87),
+                ),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
@@ -145,8 +151,7 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
     }
   }
 
-  int get _goalSeconds =>
-      widget.timer.hour * 3600 + widget.timer.minute * 60 + widget.timer.second;
+  int get _goalSeconds => widget.timer.targetSeconds;
 
   int get _avgSeconds =>
       _records.isEmpty
@@ -569,7 +574,9 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
                                             () => Navigator.pop(ctx, false),
                                         child: const Text(
                                           '취소',
-                                          style: TextStyle(color: Colors.black87),
+                                          style: TextStyle(
+                                            color: Colors.black87,
+                                          ),
                                         ),
                                       ),
                                       TextButton(

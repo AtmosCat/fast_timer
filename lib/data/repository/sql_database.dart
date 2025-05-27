@@ -29,9 +29,7 @@ class SqlDatabase {
       CREATE TABLE timer_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        hour INTEGER NOT NULL,
-        minute INTEGER NOT NULL,
-        second INTEGER NOT NULL,
+        targetSeconds INTEGER NOT NULL,
         speed REAL NOT NULL,
         remainingSeconds INTEGER NOT NULL,
         isRunning INTEGER NOT NULL,

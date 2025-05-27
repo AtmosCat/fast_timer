@@ -101,20 +101,25 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
     _startTimer();
   }
 
-  Future<void> _saveTimerState() async {
-    // 예시: id, name 등은 widget에서, 상태값은 현재 변수에서 가져옴
-    final timerItem = TimerItem(
+  Future<void> _onBackPressed() async {
+    final updated = TimerItem(
       id: widget.timerId,
       name: widget.timerName,
-      hour: widget.hour, // 필요시 widget에서 hour, minute, second도 전달
-      minute: widget.minute,
-      second: widget.second,
+      targetSeconds: widget.targetSeconds,
       speed: widget.speed,
       remainingSeconds: _remainingSeconds,
       isRunning: _timerState == TimerState.running,
       progress: _progress,
     );
-    await TimerItemDao().update(timerItem); // update 메서드는 DB에 맞게 구현되어야 함
+    await TimerItemDao().update(updated);
+    if (mounted) {
+      // Provider invalidate로 즉시 반영
+      ref.read(timerItemListViewModelProvider.notifier).loadTimers();
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => TimerListPage()),
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -444,12 +449,7 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                     Icons.arrow_back_ios_new,
                     color: AppColor.gray30.of(context),
                   ),
-                  onPressed: () {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => TimerListPage()),
-                      (route) => false,
-                    );
-                  },
+                  onPressed: _onBackPressed,
                 ),
                 const Spacer(),
                 PopupMenuButton<String>(
@@ -611,20 +611,13 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                     ),
                                   ),
                                 );
-                                // TimerStartPage로 이동
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
-                                    builder:
-                                        (_) => TimerStartPage(
-                                          timerId: widget.timerId,
-                                          timerName: widget.timerName,
-                                          targetSeconds: widget.targetSeconds,
-                                        ),
+                                    builder: (_) => TimerListPage(),
                                   ),
                                   (route) => false,
                                 );
                               } else if (result == 'delete' || result == null) {
-                                // 저장 안 함 → TimerStartPage로 이동
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
                                     builder: (_) => TimerListPage(),
@@ -680,7 +673,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                     ),
                                   ),
                                 );
-                                // TimerStartPage로 이동
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
                                     builder: (_) => TimerListPage(),
@@ -688,7 +680,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                   (route) => false,
                                 );
                               } else if (result == 'delete' || result == null) {
-                                // 저장 안 함 → TimerStartPage로 이동
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
                                     builder: (_) => TimerListPage(),

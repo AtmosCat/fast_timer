@@ -1,46 +1,44 @@
+import 'package:fast_timer/data/dao/timer_item_dao.dart';
+import 'package:fast_timer/data/model/timer_item.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../model/timer_item.dart';
-import '../repository/timer_item_repository.dart';
-import '../dao/timer_item_dao.dart';
 
-// Repository Provider
-final timerItemRepositoryProvider = Provider<TimerItemRepository>((ref) {
-  return TimerItemRepository(TimerItemDao());
-});
+class TimerItemNotifier extends StateNotifier<List<TimerItem>> {
+  TimerItemNotifier() : super([]);
 
-// AsyncNotifier for TimerItem List
-class TimerItemListNotifier extends AsyncNotifier<List<TimerItem>> {
-  @override
-  Future<List<TimerItem>> build() async {
-    final repo = ref.read(timerItemRepositoryProvider);
-    return await repo.fetchAll();
+  // 타이머 리스트 불러오기
+  Future<void> loadTimers() async {
+    final timers = await TimerItemDao().getAll();
+    state = timers;
   }
 
-  Future<void> addItem(TimerItem item) async {
-    final repo = ref.read(timerItemRepositoryProvider);
-    await repo.add(item);
-    state = AsyncData(await repo.fetchAll());
+  // 특정 타이머 상태 업데이트
+  Future<void> updateTimer(TimerItem updated) async {
+    await TimerItemDao().update(updated);
+    state = [
+      for (final t in state)
+        if (t.id == updated.id) updated else t
+    ];
   }
 
-  Future<void> updateItem(TimerItem item) async {
-    final repo = ref.read(timerItemRepositoryProvider);
-    await repo.update(item);
-    state = AsyncData(await repo.fetchAll());
+  // 타이머 초기화
+  Future<void> resetTimer(int id) async {
+    final timer = state.firstWhere((t) => t.id == id);
+    final reset = timer.copyWith(
+      remainingSeconds: timer.targetSeconds,
+      progress: 1.0,
+      isRunning: false,
+    );
+    await updateTimer(reset);
   }
 
-  Future<void> deleteItem(int id) async {
-    final repo = ref.read(timerItemRepositoryProvider);
-    await repo.delete(id);
-    state = AsyncData(await repo.fetchAll());
+  // 타이머 재생/일시정지 토글
+  Future<void> toggleTimer(int id, bool isRunning) async {
+    final timer = state.firstWhere((t) => t.id == id);
+    final updated = timer.copyWith(isRunning: isRunning);
+    await updateTimer(updated);
   }
 }
 
-// Provider 등록
-final timerItemListViewModelProvider =
-    AsyncNotifierProvider<TimerItemListNotifier, List<TimerItem>>(TimerItemListNotifier.new);
-
-// 단일 타이머 상세 Provider
-final timerItemDetailProvider = FutureProvider.family<TimerItem?, int>((ref, id) async {
-  final repo = ref.watch(timerItemRepositoryProvider);
-  return await repo.fetchById(id);
-});
+final timerItemListViewModelProvider = StateNotifierProvider<TimerItemNotifier, List<TimerItem>>(
+  (ref) => TimerItemNotifier()..loadTimers(),
+);

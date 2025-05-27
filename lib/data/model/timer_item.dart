@@ -1,9 +1,7 @@
 class TimerItem {
   final int? id;
   final String name;
-  final int hour;
-  final int minute;
-  final int second;
+  final int targetSeconds;       // 전체 시간(초)로 통합
   final double speed;
 
   // 상태 관련 파라미터
@@ -14,9 +12,7 @@ class TimerItem {
   TimerItem({
     this.id,
     required this.name,
-    required this.hour,
-    required this.minute,
-    required this.second,
+    required this.targetSeconds,
     required this.speed,
     required this.remainingSeconds,
     required this.isRunning,
@@ -25,9 +21,7 @@ class TimerItem {
 
   TimerItem copyWith({
     String? name,
-    int? hour,
-    int? minute,
-    int? second,
+    int? targetSeconds,
     double? speed,
     int? remainingSeconds,
     bool? isRunning,
@@ -36,9 +30,7 @@ class TimerItem {
     return TimerItem(
       id: id,
       name: name ?? this.name,
-      hour: hour ?? this.hour,
-      minute: minute ?? this.minute,
-      second: second ?? this.second,
+      targetSeconds: targetSeconds ?? this.targetSeconds,
       speed: speed ?? this.speed,
       remainingSeconds: remainingSeconds ?? this.remainingSeconds,
       isRunning: isRunning ?? this.isRunning,
@@ -49,12 +41,10 @@ class TimerItem {
   Map<String, dynamic> toMap() {
     final map = <String, dynamic>{
       'name': name,
-      'hour': hour,
-      'minute': minute,
-      'second': second,
+      'targetSeconds': targetSeconds,
       'speed': speed,
       'remainingSeconds': remainingSeconds,
-      'isRunning': isRunning ? 1 : 0, // DB 저장 시 int로 변환
+      'isRunning': isRunning ? 1 : 0,
       'progress': progress,
     };
     if (id != null) map['id'] = id;
@@ -65,9 +55,7 @@ class TimerItem {
     return TimerItem(
       id: map['id'] as int?,
       name: map['name'] as String,
-      hour: map['hour'] as int,
-      minute: map['minute'] as int,
-      second: map['second'] as int,
+      targetSeconds: map['targetSeconds'] as int,
       speed: map['speed'] as double,
       remainingSeconds: map['remainingSeconds'] as int,
       isRunning: (map['isRunning'] as int) == 1,

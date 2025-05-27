@@ -39,9 +39,9 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
     _timerItemRepository = TimerItemRepository(TimerItemDao());
     if (widget.timerItem != null) {
       _nameController.text = widget.timerItem!.name;
-      _selectedHour = widget.timerItem!.hour;
-      _selectedMinute = widget.timerItem!.minute;
-      _selectedSecond = widget.timerItem!.second;
+      _selectedHour = widget.timerItem!.targetSeconds ~/ 3600;
+      _selectedMinute = (widget.timerItem!.targetSeconds % 3600) ~/ 60;
+      _selectedSecond = widget.timerItem!.targetSeconds % 60;
       _speed = widget.timerItem!.speed;
     } else {
       _selectedHour = 1;
@@ -79,9 +79,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
       // 수정 모드
       final updatedTimer = widget.timerItem!.copyWith(
         name: timerName,
-        hour: _selectedHour,
-        minute: _selectedMinute,
-        second: _selectedSecond,
+        targetSeconds: _selectedHour*3600 + _selectedMinute*60 + _selectedSecond,
         speed: _speed,
         remainingSeconds: totalSeconds,
         isRunning: false,
@@ -112,10 +110,8 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
       // 생성 모드
       final timerItem = TimerItem(
         name: timerName,
-        hour: _selectedHour,
-        minute: _selectedMinute,
-        second: _selectedSecond,
         speed: _speed,
+        targetSeconds: _selectedHour*3600 + _selectedMinute*60 + _selectedSecond,
         remainingSeconds: totalSeconds,
         isRunning: false,
         progress: 1.0,
