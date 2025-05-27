@@ -150,6 +150,14 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const Spacer(),
+                  Text(
+                    "타이머 생성",
+                    style: TextStyle(
+                      color: AppColor.defaultBlack.of(context),
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Spacer(),
                   IconButton(
                     icon: Icon(
                       Icons.more_vert,

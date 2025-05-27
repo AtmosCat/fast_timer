@@ -52,10 +52,9 @@ class _TimerRecordListPageState extends State<TimerRecordListPage> {
         centerTitle: true,
         leading: IconButton(
           onPressed: () {
-            Navigator.of(context).pop();
           },
           icon: Icon(
-            Icons.arrow_back_ios_new,
+            Icons.menu,
             color: AppColor.defaultBlack.of(context),
           ),
         ),

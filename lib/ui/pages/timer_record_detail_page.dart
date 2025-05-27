@@ -58,15 +58,19 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
       context: context,
       builder:
           (ctx) => AlertDialog(
+            backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
             ),
-            title: const Text('타이머 삭제'),
+            title: const Text(
+              '타이머 삭제',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
             content: const Text('이 타이머와 모든 기록을 삭제하시겠습니까?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('취소'),
+                child: const Text('취소', style: TextStyle(color: Colors.black87)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
@@ -102,15 +106,19 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
       context: context,
       builder:
           (ctx) => AlertDialog(
+            backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
             ),
-            title: const Text('기록 초기화'),
+            title: const Text(
+              '기록 초기화',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
             content: const Text('이 타이머의 모든 기록을 삭제하시겠습니까?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('취소'),
+                child: const Text('취소', style: TextStyle(color: Colors.black87)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
@@ -486,7 +494,10 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx),
-                                  child: const Text('닫기'),
+                                  child: const Text(
+                                    '닫기',
+                                    style: TextStyle(color: Colors.black),
+                                  ),
                                 ),
                               ],
                             ),
@@ -540,16 +551,26 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
                               context: context,
                               builder:
                                   (ctx) => AlertDialog(
+                                    backgroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(18),
                                     ),
-                                    title: const Text('기록 삭제'),
+                                    title: const Text(
+                                      '기록 삭제',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ),
                                     content: const Text('이 기록을 정말 삭제하시겠습니까?'),
                                     actions: [
                                       TextButton(
                                         onPressed:
                                             () => Navigator.pop(ctx, false),
-                                        child: const Text('취소'),
+                                        child: const Text(
+                                          '취소',
+                                          style: TextStyle(color: Colors.black87),
+                                        ),
                                       ),
                                       TextButton(
                                         onPressed:
