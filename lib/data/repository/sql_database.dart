@@ -31,7 +31,11 @@ class SqlDatabase {
         name TEXT NOT NULL,
         hour INTEGER NOT NULL,
         minute INTEGER NOT NULL,
-        second INTEGER NOT NULL
+        second INTEGER NOT NULL,
+        speed REAL NOT NULL,
+        remainingSeconds INTEGER NOT NULL,
+        isRunning INTEGER NOT NULL,
+        progress REAL NOT NULL
       )
     ''');
 

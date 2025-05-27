@@ -1,15 +1,22 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:fast_timer/data/dao/timer_item_dao.dart';
 import 'package:fast_timer/data/dao/timer_record_dao.dart';
+import 'package:fast_timer/data/model/timer_item.dart';
 import 'package:fast_timer/data/model/timer_record.dart';
+import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
+import 'package:fast_timer/ui/pages/timer_create_page.dart';
 import 'package:fast_timer/ui/pages/timer_list_page.dart';
 import 'package:fast_timer/ui/pages/timer_start_page.dart';
+import 'package:fast_timer/ui/utils/snackbar_utils.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fast_timer/theme/colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum TimerState { running, paused }
 
-class TimerRunningPage extends StatefulWidget {
+class TimerRunningPage extends ConsumerStatefulWidget {
   final int timerId;
   final String timerName;
   final int targetSeconds;
@@ -24,32 +31,33 @@ class TimerRunningPage extends StatefulWidget {
   });
 
   @override
-  State<TimerRunningPage> createState() => _TimerRunningPageState();
+  ConsumerState<TimerRunningPage> createState() => _TimerRunningPageState();
 }
 
-class _TimerRunningPageState extends State<TimerRunningPage> {
+class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
   late int _remainingSeconds;
   late double _progress;
   Timer? _timer;
   late DateTime _realStartTime;
   Duration _elapsedReal = Duration.zero;
 
-  TimerState _timerState = TimerState.running;
+  TimerState _timerState = TimerState.paused; // ★ 항상 paused로 시작
 
   @override
   void initState() {
     super.initState();
-    _resetTimer();
-    _startTimer();
+    _resetTimer(); // 전체 시간 채우고 paused 상태
   }
 
   void _resetTimer() {
-    _remainingSeconds = widget.targetSeconds;
-    _progress = 1.0;
-    _elapsedReal = Duration.zero;
-    _realStartTime = DateTime.now();
-    _timerState = TimerState.running;
-    _startTimer();
+    _timer?.cancel();
+    setState(() {
+      _remainingSeconds = widget.targetSeconds;
+      _progress = 1.0;
+      _elapsedReal = Duration.zero;
+      _realStartTime = DateTime.now();
+      _timerState = TimerState.paused; // ★ 초기화 시에도 paused
+    });
   }
 
   void _startTimer() {
@@ -62,12 +70,10 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
         _remainingSeconds = max(widget.targetSeconds - elapsedSeconds, 0);
         _progress = _remainingSeconds / widget.targetSeconds;
 
-        // 남은 시간 계산
-        final remainingSeconds = _remainingSeconds;
-
         if (_remainingSeconds <= 0) {
           _timer?.cancel();
           _progress = 0.0;
+          _timerState = TimerState.paused; // 끝나면 자동 일시정지
         }
       });
     });
@@ -93,6 +99,22 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
       _timerState = TimerState.running;
     });
     _startTimer();
+  }
+
+  Future<void> _saveTimerState() async {
+    // 예시: id, name 등은 widget에서, 상태값은 현재 변수에서 가져옴
+    final timerItem = TimerItem(
+      id: widget.timerId,
+      name: widget.timerName,
+      hour: widget.hour, // 필요시 widget에서 hour, minute, second도 전달
+      minute: widget.minute,
+      second: widget.second,
+      speed: widget.speed,
+      remainingSeconds: _remainingSeconds,
+      isRunning: _timerState == TimerState.running,
+      progress: _progress,
+    );
+    await TimerItemDao().update(timerItem); // update 메서드는 DB에 맞게 구현되어야 함
   }
 
   @override
@@ -333,6 +355,79 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
     return "${h.toString().padLeft(1, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
   }
 
+  String _formatHMS(int seconds) {
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    String result = "";
+    if (h > 0) result += "$h시간 ";
+    if (m > 0) result += "$m분 ";
+    if (s > 0) result += "$s초";
+    if (result.isEmpty) result = "0초";
+    return result;
+  }
+
+  Future<void> _deleteTimer() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            title: Text(
+              '타이머 삭제',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: Text('정말 타이머를 삭제하시겠습니까?\n저장된 타이머 기록도 모두 삭제됩니다.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx, false);
+                },
+                child: Text(
+                  '취소',
+                  style: TextStyle(color: AppColor.gray30.of(context)),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  SnackbarUtil.showToastMessage('타이머가 삭제되었습니다.');
+                  Navigator.pop(ctx, true);
+                },
+                child: const Text('삭제', style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          ),
+    );
+    if (confirmed == true) {
+      await TimerItemDao().delete(widget.timerId);
+      await TimerRecordDao().delete(widget.timerId);
+      // Provider invalidate로 리스트 새로고침
+      ref.invalidate(timerItemListViewModelProvider);
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const TimerListPage()),
+          (route) => false,
+        );
+      }
+    }
+  }
+
+  Future<void> _editTimer() async {
+    final timer = await TimerItemDao().getById(widget.timerId);
+    if (mounted && timer != null) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TimerCreatePage(timerItem: timer),
+        ),
+      );
+      // 수정 후 돌아오면 리스트 새로고침
+      ref.invalidate(timerItemListViewModelProvider);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -345,7 +440,10 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
             child: Row(
               children: [
                 IconButton(
-                  icon: Icon(Icons.home, color: AppColor.gray30.of(context)),
+                  icon: Icon(
+                    Icons.arrow_back_ios_new,
+                    color: AppColor.gray30.of(context),
+                  ),
                   onPressed: () {
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(builder: (_) => TimerListPage()),
@@ -353,8 +451,31 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
                     );
                   },
                 ),
-                // const Spacer(),
-                // Icon(Icons.more_vert, color: AppColor.gray30.of(context)),
+                const Spacer(),
+                PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: AppColor.gray30.of(context),
+                  ),
+                  onSelected: (value) async {
+                    if (value == 'edit') {
+                      await _editTimer();
+                    } else if (value == 'delete') {
+                      await _deleteTimer();
+                    }
+                  },
+                  itemBuilder:
+                      (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Text('타이머 수정'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('타이머 삭제'),
+                        ),
+                      ],
+                ),
               ],
             ),
           ),
@@ -410,7 +531,7 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
                         children: [
                           // 목표 시간
                           Text(
-                            _formatTime(widget.targetSeconds),
+                            _formatHMS(widget.targetSeconds),
                             style: TextStyle(
                               color: AppColor.gray20.of(context),
                               fontSize: 18,
@@ -446,23 +567,11 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
                 children:
                     _timerState == TimerState.running
                         ? [
-                          // 초기화
+                          // 초기화: 전체 시간 채우고 paused 상태로 전환
                           _circleButton(
                             icon: Icons.refresh,
                             color: AppColor.gray30.of(context),
-                            onPressed: () {
-                              Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => TimerStartPage(
-                                        timerId: widget.timerId,
-                                        timerName: widget.timerName,
-                                        targetSeconds: widget.targetSeconds,
-                                      ),
-                                ),
-                                (route) => false,
-                              );
-                            },
+                            onPressed: _resetTimer,
                           ),
                           // 일시정지
                           _circleButton(
@@ -470,7 +579,7 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
                             color: AppColor.primaryRed.of(context),
                             onPressed: _pauseTimer,
                           ),
-                          // 종료
+                          // 종료: TimerListPage로 이동
                           _circleButton(
                             icon: Icons.stop,
                             color: AppColor.primaryOrange.of(context),
@@ -518,12 +627,7 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
                                 // 저장 안 함 → TimerStartPage로 이동
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
-                                    builder:
-                                        (_) => TimerStartPage(
-                                          timerId: widget.timerId,
-                                          timerName: widget.timerName,
-                                          targetSeconds: widget.targetSeconds,
-                                        ),
+                                    builder: (_) => TimerListPage(),
                                   ),
                                   (route) => false,
                                 );
@@ -532,32 +636,19 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
                           ),
                         ]
                         : [
-                          // 초기화
+                          // 초기화: 전체 시간 채우고 paused 상태로 전환
                           _circleButton(
                             icon: Icons.refresh,
                             color: AppColor.gray30.of(context),
-                            onPressed: () {
-                              Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => TimerStartPage(
-                                        timerId: widget.timerId,
-                                        timerName: widget.timerName,
-                                        targetSeconds: widget.targetSeconds,
-                                      ),
-                                ),
-                                (route) => false,
-                              );
-                            },
+                            onPressed: _resetTimer,
                           ),
-
                           // 계속
                           _circleButton(
                             icon: Icons.play_arrow,
                             color: AppColor.primaryBlue.of(context),
                             onPressed: _resumeTimer,
                           ),
-                          // 종료
+                          // 종료: TimerListPage로 이동
                           _circleButton(
                             icon: Icons.stop,
                             color: AppColor.primaryOrange.of(context),
@@ -592,12 +683,7 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
                                 // TimerStartPage로 이동
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
-                                    builder:
-                                        (_) => TimerStartPage(
-                                          timerId: widget.timerId,
-                                          timerName: widget.timerName,
-                                          targetSeconds: widget.targetSeconds,
-                                        ),
+                                    builder: (_) => TimerListPage(),
                                   ),
                                   (route) => false,
                                 );
@@ -605,12 +691,7 @@ class _TimerRunningPageState extends State<TimerRunningPage> {
                                 // 저장 안 함 → TimerStartPage로 이동
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
-                                    builder:
-                                        (_) => TimerStartPage(
-                                          timerId: widget.timerId,
-                                          timerName: widget.timerName,
-                                          targetSeconds: widget.targetSeconds,
-                                        ),
+                                    builder: (_) => TimerListPage(),
                                   ),
                                   (route) => false,
                                 );

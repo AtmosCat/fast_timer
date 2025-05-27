@@ -22,7 +22,14 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
   late int _selectedHour;
   late int _selectedMinute;
   late int _selectedSecond;
+  late double _speed;
   final TextEditingController _nameController = TextEditingController();
+
+  double min = 0.5;
+  double max = 3.0;
+  int divisions = 10; // (3.0-0.5)/0.25 = 10
+
+  final labelValues = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
 
   late final TimerItemRepository _timerItemRepository;
 
@@ -35,10 +42,12 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
       _selectedHour = widget.timerItem!.hour;
       _selectedMinute = widget.timerItem!.minute;
       _selectedSecond = widget.timerItem!.second;
+      _speed = widget.timerItem!.speed;
     } else {
       _selectedHour = 1;
       _selectedMinute = 50;
       _selectedSecond = 0;
+      _speed = 1.0;
     }
   }
 
@@ -73,6 +82,10 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
         hour: _selectedHour,
         minute: _selectedMinute,
         second: _selectedSecond,
+        speed: _speed,
+        remainingSeconds: totalSeconds,
+        isRunning: false,
+        progress: 1.0,
       );
       await _timerItemRepository.update(updatedTimer);
 
@@ -102,6 +115,10 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
         hour: _selectedHour,
         minute: _selectedMinute,
         second: _selectedSecond,
+        speed: _speed,
+        remainingSeconds: totalSeconds,
+        isRunning: false,
+        progress: 1.0,
       );
       final insertedId = await _timerItemRepository.add(timerItem);
       if (context.mounted) {
@@ -116,11 +133,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
           context,
           MaterialPageRoute(
             builder:
-                (context) => TimerStartPage(
-                  timerId: insertedId,
-                  timerName: timerName,
-                  targetSeconds: totalSeconds,
-                ),
+                (context) => TimerListPage(),
           ),
         );
       }
@@ -278,7 +291,6 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
               Text(
                 "타이머 이름",
                 style: TextStyle(
@@ -324,6 +336,68 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                     ),
                   ),
                 ),
+              ),
+              SizedBox(height: 24),
+              // 배속 설정 라벨
+              Text(
+                "배속 설정",
+                style: TextStyle(
+                  color: AppColor.gray30.of(context),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: 10),
+              // 슬라이더
+              Column(
+                children: [
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 5,
+                      activeTrackColor: AppColor.primaryOrange.of(context),
+                      inactiveTrackColor: AppColor.containerLightGray20.of(
+                        context,
+                      ),
+                      thumbColor: AppColor.primaryOrange.of(context),
+                      overlayColor: AppColor.primaryOrange
+                          .of(context)
+                          .withOpacity(0.15),
+                      valueIndicatorColor: AppColor.primaryOrange.of(context),
+                      thumbShape: const RoundSliderThumbShape(
+                        enabledThumbRadius: 13,
+                      ),
+                      valueIndicatorTextStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    child: Slider(
+                      min: min,
+                      max: max,
+                      divisions: divisions,
+                      label: "x${_speed.toStringAsFixed(2)}",
+                      value: _speed,
+                      onChanged: (val) {
+                        setState(() {
+                          _speed = (val * 4).round() / 4.0;
+                        });
+                      },
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children:
+                        labelValues.map((value) {
+                          return Text(
+                            "  x${value.toStringAsFixed(1)}",
+                            style: TextStyle(
+                              color: AppColor.gray20.of(context),
+                              fontSize: 13,
+                            ),
+                          );
+                        }).toList(),
+                  ),
+                ],
               ),
               const Spacer(),
               Center(
