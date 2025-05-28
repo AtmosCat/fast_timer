@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fast_timer/theme/colors.dart';
 import 'package:fast_timer/ui/pages/timer_create_page.dart';
+import 'package:vibration/vibration.dart';
 
 class TimerListPage extends ConsumerStatefulWidget {
   const TimerListPage({super.key});
@@ -16,57 +17,120 @@ class TimerListPage extends ConsumerStatefulWidget {
 }
 
 class _TimerListPageState extends ConsumerState<TimerListPage> {
-  int? _navigatedTimerId;
-
-  @override
-  void didUpdateWidget(covariant TimerListPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _checkAndNavigateToZeroTimer();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _checkAndNavigateToZeroTimer();
-  }
-
-  void _checkAndNavigateToZeroTimer() {
-    final timers = ref.read(timerItemListViewModelProvider).timers;
-    for (final t in timers) {
-      if (t.remainingSeconds <= 0 && _navigatedTimerId != t.id) {
-        _navigatedTimerId = t.id;
-        // 이미 TimerRunningPage에 있다면 중복 진입 방지
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            Navigator.of(context)
-                .push(
-                  MaterialPageRoute(
-                    builder: (_) => TimerRunningPage(timerId: t.id!),
-                  ),
-                )
-                .then((_) {
-                  // 돌아오면 다시 진입 허용
-                  _navigatedTimerId = null;
-                });
-          }
-        });
-        break;
-      }
-    }
-  }
+  int? _vibratingTimerId;
+  bool _isVibrating = false;
 
   @override
   Widget build(BuildContext context) {
-    // 1초마다 rebuild (timerTickProvider 활용)
     ref.watch(timerTickProvider);
     final state = ref.watch(timerItemListViewModelProvider);
     final timers = state.timers;
 
-    // 0초 타이머 감지 및 자동 진입
-    _checkAndNavigateToZeroTimer();
-
-    // 1초마다 rebuild (timerTickProvider 활용)
-    ref.watch(timerTickProvider);
+    // 0초 타이머 감지 및 진동/다이얼로그
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!_isVibrating) {
+        final now = DateTime.now();
+        for (final t in timers) {
+          int remaining = t.remainingSeconds;
+          if (t.isRunning && t.lastStartTime != null) {
+            final elapsed =
+                now.difference(t.lastStartTime!).inMilliseconds * t.speed;
+            final elapsedSeconds = (elapsed / 1000).floor();
+            remaining = t.remainingSeconds - elapsedSeconds;
+          }
+          print('타이머 ${t.id} 실제 남은 시간: $remaining');
+          if (remaining <= 0 && _vibratingTimerId != t.id) {
+            setState(() {
+              _vibratingTimerId = t.id;
+              _isVibrating = true;
+            });
+            if (await Vibration.hasVibrator() ?? false) {
+              Vibration.vibrate(
+                pattern: [0, 500, 500, 500, 500, 500],
+                repeat: 0,
+              );
+            }
+            if (mounted) {
+              await showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) {
+                  return AlertDialog(
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    title: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          "타이머가 종료되었습니다!",
+                          style: TextStyle(
+                            color: AppColor.primaryOrange.of(context),
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        Image.asset(
+                          'lib/assets/icons/timer.png',
+                          height: 60,
+                          color: AppColor.primaryOrange.of(context),
+                        ),
+                      ],
+                    ),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ElevatedButton.icon(
+                          icon: Icon(Icons.vibration, color: Colors.white),
+                          label: Text(
+                            "진동 해제 및 타이머로 이동",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.amber,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 28,
+                              vertical: 12,
+                            ),
+                          ),
+                          onPressed: () {
+                            Vibration.cancel();
+                            Navigator.pop(ctx);
+                            Navigator.of(context)
+                                .push(
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => TimerRunningPage(timerId: t.id!),
+                                  ),
+                                )
+                                .then((_) {
+                                  setState(() {
+                                    _vibratingTimerId = null;
+                                    _isVibrating = false;
+                                  });
+                                });
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            }
+            break;
+          }
+        }
+      }
+    });
 
     if (state.isLoading) {
       return Scaffold(

@@ -15,14 +15,14 @@ final timerItemRepositoryProvider = Provider<TimerItemRepository>((ref) {
 // });
 
 // 타이머 단건 조회 Provider (예시)
-final timerItemProvider = FutureProvider.family<TimerItem?, int>((ref, id) async {
+final timerItemProvider = FutureProvider.family<TimerItem?, int>((
+  ref,
+  id,
+) async {
   final repo = ref.watch(timerItemRepositoryProvider);
   return await repo.fetchById(id);
 });
 
-final timerTickProvider = StreamProvider<int>((ref) async* {
-  while (true) {
-    await Future.delayed(const Duration(seconds: 1));
-    yield DateTime.now().millisecondsSinceEpoch;
-  }
+final timerTickProvider = StreamProvider<int>((ref) {
+  return Stream.periodic(const Duration(seconds: 1), (x) => x);
 });
