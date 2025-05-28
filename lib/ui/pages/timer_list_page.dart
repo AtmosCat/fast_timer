@@ -147,18 +147,19 @@ class TimerListPage extends ConsumerWidget {
                 ),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'fab_home',
         backgroundColor: AppColor.primaryOrange.of(context),
         onPressed: () async {
           await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const TimerCreatePage()),
           );
-          // 타이머 생성 후 돌아오면 리스트 새로고침
           ref.invalidate(timerItemListViewModelProvider);
         },
         child: const Icon(Icons.add, color: Colors.white),
         shape: const CircleBorder(),
       ),
+
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: CustomBottomNavigationBar(activeIndex: 0),
     );

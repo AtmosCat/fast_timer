@@ -1,19 +1,17 @@
 import 'dart:async';
 import 'dart:math';
-import 'package:collection/collection.dart';
-import 'package:fast_timer/data/dao/timer_item_dao.dart';
-import 'package:fast_timer/data/dao/timer_record_dao.dart';
-import 'package:fast_timer/data/model/timer_item.dart';
 import 'package:fast_timer/data/model/timer_record.dart';
 import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
-import 'package:fast_timer/ui/pages/timer_create_page.dart';
-import 'package:fast_timer/ui/pages/timer_list_page.dart';
-import 'package:fast_timer/ui/pages/timer_start_page.dart';
 import 'package:fast_timer/ui/utils/snackbar_utils.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:fast_timer/theme/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vibration/vibration.dart';
+import 'package:fast_timer/data/model/timer_item.dart';
+import 'package:fast_timer/data/dao/timer_item_dao.dart';
+import 'package:fast_timer/data/dao/timer_record_dao.dart';
+import 'package:fast_timer/theme/colors.dart';
+import 'package:fast_timer/ui/pages/timer_list_page.dart';
+import 'package:fast_timer/ui/pages/timer_create_page.dart';
 
 enum TimerState { running, paused }
 
@@ -27,19 +25,72 @@ class TimerRunningPage extends ConsumerStatefulWidget {
 
 class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
   Timer? _timer;
+  bool _isVibrating = false;
+  bool _vibrationButtonDisabled = false;
+
+  void _startVibration() async {
+    if (!_isVibrating) {
+      _isVibrating = true;
+      Vibration.vibrate(pattern: [0, 500, 500, 500, 500, 500], repeat: 0);
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _stopVibration() {
+    if (_isVibrating && !_vibrationButtonDisabled) {
+      setState(() {
+        _vibrationButtonDisabled = true; // 버튼 비활성화
+      });
+      Vibration.cancel();
+      setState(() {
+        _isVibrating = false;
+        // // 0.5초 후 버튼 다시 활성화(원하는 대로)
+        // Future.delayed(const Duration(milliseconds: 500), () {
+        //   if (mounted) setState(() => _vibrationButtonDisabled = false);
+        // });
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    // 100ms마다 setState로 실시간 갱신
     _timer = Timer.periodic(
       const Duration(milliseconds: 100),
       (_) => setState(() {}),
     );
   }
 
-  void _resetTimer(TimerItem timer) async {
-    // 1. 먼저 타이머를 일시정지
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _onBackPressed() {
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _pauseTimer(TimerItem timer) async {
+    await ref
+        .read(timerItemListViewModelProvider.notifier)
+        .toggleTimer(timer.id!, false);
+  }
+
+  Future<void> _resumeTimer(TimerItem timer) async {
+    await ref
+        .read(timerItemListViewModelProvider.notifier)
+        .toggleTimer(timer.id!, true);
+  }
+
+  Future<void> _resetTimer(TimerItem timer) async {
+    // 진동 상태 리셋
+    setState(() {
+      _isVibrating = false;
+      _vibrationButtonDisabled = false;
+    });
+
+    // 1. 일시정지로 현재 시간 기록
     await ref
         .read(timerItemListViewModelProvider.notifier)
         .toggleTimer(timer.id!, false);
@@ -61,59 +112,38 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
     }
   }
 
-  void _pauseTimer(TimerItem timer) {
-    ref
-        .read(timerItemListViewModelProvider.notifier)
-        .toggleTimer(timer.id!, false);
-  }
-
-  void _resumeTimer(TimerItem timer) {
-    ref
-        .read(timerItemListViewModelProvider.notifier)
-        .toggleTimer(timer.id!, true);
-  }
-
-  void _onBackPressed() {
-    Navigator.of(context).pop();
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
   Future<String?> _showFinishDialog(BuildContext context, TimerItem timer) {
     final int targetSeconds = timer.targetSeconds;
     final double speed = timer.speed;
 
-    // 실시간 남은 시간 계산
+    // 남은 시간 계산: isRunning이 아니어도 lastStartTime이 있으면 오버타임 반영
     int remaining = timer.remainingSeconds;
-    Duration elapsedReal = Duration.zero;
-    if (timer.isRunning && timer.lastStartTime != null) {
-      final elapsed =
-          DateTime.now().difference(timer.lastStartTime!).inMilliseconds *
-          timer.speed;
-      final elapsedSeconds = (elapsed / 1000).floor();
-      remaining = (timer.remainingSeconds - elapsedSeconds).clamp(
-        0,
-        timer.targetSeconds,
-      );
-      elapsedReal = Duration(seconds: timer.targetSeconds - remaining);
-    } else {
-      elapsedReal = Duration(
-        seconds: timer.targetSeconds - timer.remainingSeconds,
-      );
-    }
+    // if (timer.lastStartTime != null) {
+    //   final elapsed =
+    //       DateTime.now().difference(timer.lastStartTime!).inMilliseconds *
+    //       timer.speed;
+    //   final elapsedSeconds = (elapsed / 1000).floor();
+    //   remaining = timer.remainingSeconds - elapsedSeconds;
+    // }
 
-    final int recordedSeconds = timer.targetSeconds - remaining;
-    final int realElapsedSeconds = elapsedReal.inSeconds;
+    final int realElapsedSeconds = timer.targetSeconds - remaining;
     final String timerName = timer.name;
 
+    // 오버타임(0초 이후 더 걸린 시간)
+    int overtime = realElapsedSeconds - targetSeconds;
+
+    // diff: 목표 - 실제 (양수면 빠름, 0이면 딱 맞춤, 음수면 느림)
     int diff = targetSeconds - realElapsedSeconds;
-    int diffH = diff ~/ 3600;
-    int diffM = (diff % 3600) ~/ 60;
-    int diffS = diff % 60;
+
+    // 문구 결정
+    String resultMessage;
+    if (realElapsedSeconds > targetSeconds) {
+      resultMessage = "느리게 목표를 달성했어요!";
+    } else if (realElapsedSeconds == targetSeconds) {
+      resultMessage = "0초 빠르게 목표를 달성했어요!";
+    } else {
+      resultMessage = "빠르게 목표를 달성했어요!";
+    }
 
     RichText formatHMSRich(int seconds) {
       int h = seconds ~/ 3600;
@@ -197,12 +227,17 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (diffH > 0 || diffM > 0 || diffS > 0)
-                            formatHMSRich(diff),
+                          if (realElapsedSeconds != targetSeconds)
+                            formatHMSRich(
+                              (realElapsedSeconds - targetSeconds).abs(),
+                            ),
                           Text(
-                            " 빠르게 목표를 달성했어요!",
+                            resultMessage,
                             style: TextStyle(
-                              color: AppColor.gray30.of(context),
+                              color:
+                                  realElapsedSeconds > targetSeconds
+                                      ? AppColor.primaryRed.of(context)
+                                      : AppColor.gray30.of(context),
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                             ),
@@ -390,7 +425,9 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx, true),
+                      onPressed: () {
+                        Navigator.pop(ctx, true);
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColor.primaryOrange.of(context),
                         shape: RoundedRectangleBorder(
@@ -434,25 +471,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
         Expanded(child: value),
       ],
     );
-  }
-
-  String _formatTime(int seconds) {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
-    return "${h.toString().padLeft(1, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
-  }
-
-  String _formatHMS(int seconds) {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
-    String result = "";
-    if (h > 0) result += "$h시간 ";
-    if (m > 0) result += "$m분 ";
-    if (s > 0) result += "$s초";
-    if (result.isEmpty) result = "0초";
-    return result;
   }
 
   Future<void> _deleteTimer() async {
@@ -502,7 +520,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
     if (confirmed == true) {
       await TimerItemDao().delete(widget.timerId);
       await TimerRecordDao().delete(widget.timerId);
-      // Provider invalidate로 리스트 새로고침
       ref.invalidate(timerItemListViewModelProvider);
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
@@ -524,7 +541,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
       ),
     );
 
-    // 돌아온 뒤에도 context가 살아있을 때만 invalidate!
     if (!mounted) return;
     ref.invalidate(timerItemListViewModelProvider);
   }
@@ -538,7 +554,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
             : null;
 
     if (timer == null) {
-      // 타이머가 삭제된 경우 안전하게 뒤로가기
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (Navigator.canPop(context)) {
           Navigator.of(context).pop();
@@ -547,7 +562,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
       return const SizedBox.shrink();
     }
 
-    // 실시간 남은 시간/진행률 계산
     int remaining = timer.remainingSeconds;
     double progress = timer.progress;
     Duration elapsedReal = Duration.zero;
@@ -558,17 +572,21 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
           DateTime.now().difference(timer.lastStartTime!).inMilliseconds *
           timer.speed;
       final elapsedSeconds = (elapsed / 1000).floor();
-      remaining = (timer.remainingSeconds - elapsedSeconds).clamp(
-        0,
-        timer.targetSeconds,
-      );
+      remaining = timer.remainingSeconds - elapsedSeconds;
       progress =
-          timer.targetSeconds > 0 ? remaining / timer.targetSeconds : 0.0;
+          timer.targetSeconds > 0
+              ? (remaining > 0 ? remaining / timer.targetSeconds : 0.0)
+              : 0.0;
       elapsedReal = Duration(seconds: timer.targetSeconds - remaining);
       realStartTime = timer.lastStartTime!;
     }
 
-    // 아래에서 remaining, progress, elapsedReal, realStartTime 사용
+    if (remaining <= 0 && !_isVibrating) {
+      _startVibration();
+    }
+    if (remaining > 0 && _isVibrating) {
+      _stopVibration();
+    }
 
     return Scaffold(
       backgroundColor: AppColor.scaffoldGray.of(context),
@@ -619,7 +637,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // 타이틀 + 아이콘
             Padding(
               padding: const EdgeInsets.only(top: 18.0, bottom: 12.0),
               child: Row(
@@ -644,8 +661,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
               ),
             ),
             const SizedBox(height: 10),
-
-            // 원형 타이머 영역
             Expanded(
               child: Center(
                 child: SizedBox(
@@ -664,7 +679,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // 목표 시간
                           Text(
                             _formatHMS(timer.targetSeconds),
                             style: TextStyle(
@@ -674,11 +688,13 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          // 남은 시간
                           Text(
                             _formatTime(remaining),
                             style: TextStyle(
-                              color: AppColor.defaultBlack.of(context),
+                              color:
+                                  remaining < 0
+                                      ? AppColor.primaryRed.of(context)
+                                      : AppColor.defaultBlack.of(context),
                               fontSize: 44,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.5,
@@ -691,10 +707,36 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                 ),
               ),
             ),
+            if (_isVibrating)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: ElevatedButton.icon(
+                  icon: Icon(Icons.vibration, color: Colors.white),
+                  label: Text(
+                    "진동 해제",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        _vibrationButtonDisabled
+                            ? AppColor.gray30.of(context)
+                            : Colors.amber,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 28,
+                      vertical: 12,
+                    ),
+                  ),
+                  onPressed: _vibrationButtonDisabled ? null : _stopVibration,
+                ),
+              ),
 
-            const SizedBox(height: 24),
-
-            // 하단 버튼 3개: 상태에 따라 UI 변경
+            const SizedBox(height: 50),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 36.0),
               child: Row(
@@ -702,76 +744,91 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                 children:
                     timer.isRunning
                         ? [
-                          // 초기화
                           _circleButton(
                             icon: Icons.refresh,
                             color: AppColor.gray30.of(context),
-                            onPressed: () => _resetTimer(timer),
+                            onPressed: () async {
+                              _stopVibration();
+                              await _resetTimer(timer);
+                            },
                           ),
-                          // 일시정지
                           _circleButton(
                             icon: Icons.pause,
                             color: AppColor.primaryRed.of(context),
-                            onPressed: () => _pauseTimer(timer),
+                            onPressed: () async {
+                              _stopVibration();
+                              await _pauseTimer(timer);
+                            },
                           ),
-                          // 종료
                           _circleButton(
                             icon: Icons.stop,
                             color: AppColor.primaryOrange.of(context),
                             onPressed: () async {
-                              // 1. 종료(저장) 버튼을 누르면 일단 타이머를 일시정지
-                              ref
-                                  .read(timerItemListViewModelProvider.notifier)
-                                  .toggleTimer(widget.timerId, false);
+                              _stopVibration();
 
-                              // Provider에서 최신 TimerItem을 가져옴
-                              final timer = ref
+                              final timerNow = ref
                                   .read(timerItemListViewModelProvider)
                                   .timers
                                   .firstWhere((t) => t.id == widget.timerId);
 
-                              // 2. Dialog 표시
+                              // 타이머가 시작되지 않은 경우 경고 메시지
+                              if (!timerNow.isRunning &&
+                                  timerNow.remainingSeconds ==
+                                      timerNow.targetSeconds) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text("타이머를 시작한 후에 종료할 수 있습니다."),
+                                    backgroundColor: AppColor.primaryRed.of(
+                                      context,
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              // 일시정지(내부 시간 저장)
+                              await ref
+                                  .read(timerItemListViewModelProvider.notifier)
+                                  .toggleTimer(widget.timerId, false);
+
+                              // 최신 timer 객체로 다이얼로그
+                              final updatedTimer = ref
+                                  .read(timerItemListViewModelProvider)
+                                  .timers
+                                  .firstWhere((t) => t.id == widget.timerId);
+
                               final result = await _showFinishDialog(
                                 context,
-                                timer,
+                                updatedTimer,
                               );
 
                               if (!mounted) return;
 
                               if (result == 'save') {
-                                // 기록 저장
                                 await TimerRecordDao().insert(
                                   TimerRecord(
-                                    timerId: timer.id!,
-                                    targetSeconds: timer.targetSeconds,
-                                    speed: timer.speed,
+                                    timerId: updatedTimer.id!,
+                                    targetSeconds: updatedTimer.targetSeconds,
+                                    speed: updatedTimer.speed,
                                     recordedSeconds:
-                                        timer.targetSeconds -
-                                        timer.remainingSeconds,
+                                        updatedTimer.targetSeconds -
+                                        updatedTimer.remainingSeconds,
                                     actualSeconds:
-                                        (timer.targetSeconds -
-                                            timer.remainingSeconds) ~/
-                                        timer.speed,
+                                        (updatedTimer.targetSeconds -
+                                            updatedTimer.remainingSeconds) ~/
+                                        updatedTimer.speed,
                                     startedAt:
-                                        timer.lastStartTime ?? DateTime.now(),
+                                        updatedTimer.lastStartTime ??
+                                        DateTime.now(),
                                     endedAt: DateTime.now(),
                                   ),
                                 );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text("기록이 저장되었습니다!"),
-                                    backgroundColor: AppColor.primaryOrange.of(
-                                      context,
-                                    ),
-                                  ),
-                                );
-                                // 3. 저장/저장안함 모두 타이머를 초기화
+                                SnackbarUtil.showToastMessage('기록이 저장되었습니다!');
                                 await ref
                                     .read(
                                       timerItemListViewModelProvider.notifier,
                                     )
                                     .resetTimer(widget.timerId);
-
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
                                     builder: (_) => TimerListPage(),
@@ -779,13 +836,14 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                   (route) => false,
                                 );
                               } else if (result == 'delete') {
-                                // 저장 안 함 → 타이머 초기화
+                                SnackbarUtil.showToastMessage(
+                                  '기록을 저장하지 않고 초기화되었습니다.',
+                                );
                                 await ref
                                     .read(
                                       timerItemListViewModelProvider.notifier,
                                     )
                                     .resetTimer(widget.timerId);
-
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
                                     builder: (_) => TimerListPage(),
@@ -793,81 +851,95 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                   (route) => false,
                                 );
                               }
-                              // 닫기(X) 버튼 등은 아무 동작도 하지 않음 (다이얼로그만 닫힘)
                             },
                           ),
                         ]
                         : [
-                          // 초기화
                           _circleButton(
                             icon: Icons.refresh,
                             color: AppColor.gray30.of(context),
-                            onPressed: () => _resetTimer(timer),
+                            onPressed: () async {
+                              _stopVibration();
+                              await _resetTimer(timer);
+                            },
                           ),
-                          // 계속
                           _circleButton(
                             icon: Icons.play_arrow,
                             color: AppColor.primaryBlue.of(context),
-                            onPressed: () => _resumeTimer(timer),
+                            onPressed: () async {
+                              _stopVibration();
+                              await _resumeTimer(timer);
+                            },
                           ),
-                          // 종료
                           _circleButton(
                             icon: Icons.stop,
                             color: AppColor.primaryOrange.of(context),
                             onPressed: () async {
-                              // 1. 종료(저장) 버튼을 누르면 일단 타이머를 일시정지
-                              ref
-                                  .read(timerItemListViewModelProvider.notifier)
-                                  .toggleTimer(widget.timerId, false);
+                              _stopVibration();
 
-                              // Provider에서 최신 TimerItem을 가져옴
-                              final timer = ref
+                              final timerNow = ref
                                   .read(timerItemListViewModelProvider)
                                   .timers
                                   .firstWhere((t) => t.id == widget.timerId);
 
-                              // 2. Dialog 표시
+                              // 타이머가 시작되지 않은 경우 경고 메시지
+                              if (!timerNow.isRunning &&
+                                  timerNow.remainingSeconds ==
+                                      timerNow.targetSeconds) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text("타이머를 시작한 후에 종료할 수 있습니다."),
+                                    backgroundColor: AppColor.primaryRed.of(
+                                      context,
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              // 일시정지(내부 시간 저장)
+                              await ref
+                                  .read(timerItemListViewModelProvider.notifier)
+                                  .toggleTimer(widget.timerId, false);
+
+                              // 최신 timer 객체로 다이얼로그
+                              final updatedTimer = ref
+                                  .read(timerItemListViewModelProvider)
+                                  .timers
+                                  .firstWhere((t) => t.id == widget.timerId);
+
                               final result = await _showFinishDialog(
                                 context,
-                                timer,
+                                updatedTimer,
                               );
 
                               if (!mounted) return;
 
                               if (result == 'save') {
-                                // 기록 저장
                                 await TimerRecordDao().insert(
                                   TimerRecord(
-                                    timerId: timer.id!,
-                                    targetSeconds: timer.targetSeconds,
-                                    speed: timer.speed,
+                                    timerId: updatedTimer.id!,
+                                    targetSeconds: updatedTimer.targetSeconds,
+                                    speed: updatedTimer.speed,
                                     recordedSeconds:
-                                        timer.targetSeconds -
-                                        timer.remainingSeconds,
+                                        updatedTimer.targetSeconds -
+                                        updatedTimer.remainingSeconds,
                                     actualSeconds:
-                                        (timer.targetSeconds -
-                                            timer.remainingSeconds) ~/
-                                        timer.speed,
+                                        (updatedTimer.targetSeconds -
+                                            updatedTimer.remainingSeconds) ~/
+                                        updatedTimer.speed,
                                     startedAt:
-                                        timer.lastStartTime ?? DateTime.now(),
+                                        updatedTimer.lastStartTime ??
+                                        DateTime.now(),
                                     endedAt: DateTime.now(),
                                   ),
                                 );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text("기록이 저장되었습니다!"),
-                                    backgroundColor: AppColor.primaryOrange.of(
-                                      context,
-                                    ),
-                                  ),
-                                );
-                                // 3. 저장/저장안함 모두 타이머를 초기화
+                                SnackbarUtil.showToastMessage('기록이 저장되었습니다!');
                                 await ref
                                     .read(
                                       timerItemListViewModelProvider.notifier,
                                     )
                                     .resetTimer(widget.timerId);
-
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
                                     builder: (_) => TimerListPage(),
@@ -875,13 +947,14 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                   (route) => false,
                                 );
                               } else if (result == 'delete') {
-                                // 저장 안 함 → 타이머 초기화
+                                SnackbarUtil.showToastMessage(
+                                  '기록을 저장하지 않고 초기화되었습니다.',
+                                );
                                 await ref
                                     .read(
                                       timerItemListViewModelProvider.notifier,
                                     )
                                     .resetTimer(widget.timerId);
-
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
                                     builder: (_) => TimerListPage(),
@@ -889,7 +962,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                   (route) => false,
                                 );
                               }
-                              // 닫기(X) 버튼 등은 아무 동작도 하지 않음 (다이얼로그만 닫힘)
                             },
                           ),
                         ],
@@ -901,33 +973,32 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
       ),
     );
   }
-
-  Widget _circleButton({
-    required IconData icon,
-    required Color color,
-    required VoidCallback onPressed,
-  }) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-        child: ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: color,
-            shape: const CircleBorder(),
-            elevation: 0,
-            minimumSize: const Size(64, 64),
-          ),
-          child: Icon(icon, color: Colors.white, size: 32),
-        ),
-      ),
-    );
-  }
 }
 
-// CustomPainter로 원형 타이머 프로그레스 구현
+Widget _circleButton({
+  required IconData icon,
+  required Color color,
+  required VoidCallback onPressed,
+}) {
+  return Expanded(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          shape: const CircleBorder(),
+          elevation: 0,
+          minimumSize: const Size(64, 64),
+        ),
+        child: Icon(icon, color: Colors.white, size: 32),
+      ),
+    ),
+  );
+}
+
 class _TimerProgressPainter extends CustomPainter {
-  final double progress; // 1.0 ~ 0.0
+  final double progress;
   final Color color;
 
   _TimerProgressPainter({required this.progress, required this.color});
@@ -939,7 +1010,6 @@ class _TimerProgressPainter extends CustomPainter {
     final center = rect.center;
     final radius = (size.width - strokeWidth) / 2;
 
-    // 전체 배경 원
     final bgPaint =
         Paint()
           ..color = color.withOpacity(0.15)
@@ -947,7 +1017,6 @@ class _TimerProgressPainter extends CustomPainter {
           ..strokeWidth = strokeWidth;
     canvas.drawCircle(center, radius, bgPaint);
 
-    // 진행 원
     final progressPaint =
         Paint()
           ..color = color
@@ -955,7 +1024,6 @@ class _TimerProgressPainter extends CustomPainter {
           ..strokeWidth = strokeWidth
           ..strokeCap = StrokeCap.round;
 
-    // 12시 방향에서 반시계 방향으로
     final startAngle = -pi / 2;
     final sweepAngle = 2 * pi * progress;
 
@@ -973,4 +1041,33 @@ class _TimerProgressPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _TimerProgressPainter old) =>
       old.progress != progress || old.color != color;
+}
+
+String _formatTime(int seconds) {
+  final isNegative = seconds < 0;
+  final absSeconds = seconds.abs();
+
+  final h = absSeconds ~/ 3600;
+  final m = (absSeconds % 3600) ~/ 60;
+  final s = absSeconds % 60;
+
+  final timeStr =
+      "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
+  return isNegative ? "-$timeStr" : timeStr;
+}
+
+String _formatHMS(int seconds) {
+  final isNegative = seconds < 0;
+  final absSeconds = seconds.abs();
+
+  final h = absSeconds ~/ 3600;
+  final m = (absSeconds % 3600) ~/ 60;
+  final s = absSeconds % 60;
+
+  String result = "";
+  if (h > 0) result += "$h시간 ";
+  if (m > 0) result += "$m분 ";
+  if (s > 0) result += "$s초";
+  if (result.isEmpty) result = "0초";
+  return isNegative ? "-$result" : result;
 }

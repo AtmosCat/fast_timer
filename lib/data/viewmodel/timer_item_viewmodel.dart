@@ -17,7 +17,8 @@ class TimerListState {
     );
   }
 
-  factory TimerListState.initial() => TimerListState(isLoading: true, timers: []);
+  factory TimerListState.initial() =>
+      TimerListState(isLoading: true, timers: []);
 }
 
 // 2. StateNotifier
@@ -42,14 +43,12 @@ class TimerItemNotifier extends StateNotifier<TimerListState> {
 
   Future<void> resetTimer(int id) async {
     final timer = state.timers.firstWhere((t) => t.id == id);
-
     final reset = timer.copyWith(
       remainingSeconds: timer.targetSeconds,
       progress: 1.0,
       isRunning: false,
       lastStartTime: null,
     );
-
     await updateTimer(reset);
   }
 
@@ -57,28 +56,29 @@ class TimerItemNotifier extends StateNotifier<TimerListState> {
     final timer = state.timers.firstWhere((t) => t.id == id);
 
     if (isRunning) {
+      // 재생: 기준 시각을 현재로
       final updated = timer.copyWith(
         isRunning: true,
         lastStartTime: DateTime.now(),
       );
       await updateTimer(updated);
     } else {
+      // 일시정지: 경과 시간 계산, 남은 시간 업데이트
       int newRemaining = timer.remainingSeconds;
       if (timer.isRunning && timer.lastStartTime != null) {
         final elapsed =
             DateTime.now().difference(timer.lastStartTime!).inMilliseconds *
             timer.speed;
         final elapsedSeconds = (elapsed / 1000).floor();
-        newRemaining = (timer.remainingSeconds - elapsedSeconds).clamp(
-          0,
-          timer.targetSeconds,
-        );
+        newRemaining = timer.remainingSeconds - elapsedSeconds;
       }
       final updated = timer.copyWith(
         isRunning: false,
         remainingSeconds: newRemaining,
         progress:
-            timer.targetSeconds > 0 ? newRemaining / timer.targetSeconds : 0.0,
+            timer.targetSeconds > 0
+                ? (newRemaining > 0 ? newRemaining / timer.targetSeconds : 0.0)
+                : 0.0,
         lastStartTime: null,
       );
       await updateTimer(updated);
@@ -87,8 +87,9 @@ class TimerItemNotifier extends StateNotifier<TimerListState> {
 
   void _startAutoRefresh() {
     // Stream 구독을 필드에 저장
-    _autoRefreshSub = Stream.periodic(const Duration(seconds: 1))
-        .listen((_) => loadTimers());
+    _autoRefreshSub = Stream.periodic(
+      const Duration(seconds: 1),
+    ).listen((_) => loadTimers());
   }
 
   @override
