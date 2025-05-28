@@ -1,8 +1,29 @@
+import 'dart:async';
 import 'package:fast_timer/data/dao/timer_item_dao.dart';
 import 'package:fast_timer/data/model/timer_item.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// 1. 상태 모델
+class TimerListState {
+  final bool isLoading;
+  final List<TimerItem> timers;
+
+  TimerListState({required this.isLoading, required this.timers});
+
+  TimerListState copyWith({bool? isLoading, List<TimerItem>? timers}) {
+    return TimerListState(
+      isLoading: isLoading ?? this.isLoading,
+      timers: timers ?? this.timers,
+    );
+  }
+
+  factory TimerListState.initial() => TimerListState(isLoading: true, timers: []);
+}
+
+// 2. StateNotifier
 class TimerItemNotifier extends StateNotifier<TimerListState> {
+  StreamSubscription? _autoRefreshSub;
+
   TimerItemNotifier() : super(TimerListState.initial()) {
     loadTimers();
     _startAutoRefresh();
@@ -65,28 +86,21 @@ class TimerItemNotifier extends StateNotifier<TimerListState> {
   }
 
   void _startAutoRefresh() {
-    Stream.periodic(const Duration(seconds: 1)).listen((_) => loadTimers());
+    // Stream 구독을 필드에 저장
+    _autoRefreshSub = Stream.periodic(const Duration(seconds: 1))
+        .listen((_) => loadTimers());
+  }
+
+  @override
+  void dispose() {
+    // Provider가 dispose될 때 Stream 구독도 해제
+    _autoRefreshSub?.cancel();
+    super.dispose();
   }
 }
 
+// 3. Provider 등록
 final timerItemListViewModelProvider =
     StateNotifierProvider<TimerItemNotifier, TimerListState>(
       (ref) => TimerItemNotifier(),
     );
-
-class TimerListState {
-  final bool isLoading;
-  final List<TimerItem> timers;
-
-  TimerListState({required this.isLoading, required this.timers});
-
-  TimerListState copyWith({bool? isLoading, List<TimerItem>? timers}) {
-    return TimerListState(
-      isLoading: isLoading ?? this.isLoading,
-      timers: timers ?? this.timers,
-    );
-  }
-
-  factory TimerListState.initial() =>
-      TimerListState(isLoading: true, timers: []);
-}

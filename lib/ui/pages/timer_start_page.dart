@@ -98,16 +98,18 @@ class _TimerRunPageState extends ConsumerState<TimerStartPage> {
 
   Future<void> _editTimer() async {
     final timer = await TimerItemDao().getById(widget.timerId);
-    if (mounted && timer != null) {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => TimerCreatePage(timerItem: timer),
-        ),
-      );
-      // 수정 후 돌아오면 리스트 새로고침
-      ref.invalidate(timerItemListViewModelProvider);
-    }
+    if (!mounted || timer == null) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TimerCreatePage(timerItem: timer),
+      ),
+    );
+
+    // 돌아온 뒤에도 context가 살아있을 때만 invalidate!
+    if (!mounted) return;
+    ref.invalidate(timerItemListViewModelProvider);
   }
 
   @override

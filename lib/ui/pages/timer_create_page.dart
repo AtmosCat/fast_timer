@@ -27,7 +27,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
   double min = 1.0;
   double max = 3.0;
 
-  final labelValues = [1.0,2.0,3.0];
+  final labelValues = [1.0, 2.0, 3.0];
 
   late final TimerItemRepository _timerItemRepository;
 
@@ -88,7 +88,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
       );
       await _timerItemRepository.update(updatedTimer);
 
-      // Provider invalidate와 Navigator 이동을 context.mounted 체크 후 실행
+      // Provider invalidate를 Navigator 이동 전에 반드시 호출!
       if (!context.mounted) return;
       final container = ProviderScope.containerOf(context, listen: false);
       container.invalidate(timerItemListViewModelProvider);
@@ -100,6 +100,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
         ),
       );
 
+      // 이제 Navigator 이동
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const TimerListPage()),
         (route) => false,
@@ -117,7 +118,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
       );
       await _timerItemRepository.add(timerItem);
 
-      // Provider invalidate와 Navigator 이동을 context.mounted 체크 후 실행
+      // Provider invalidate를 Navigator 이동 전에 반드시 호출!
       if (!context.mounted) return;
       final container = ProviderScope.containerOf(context, listen: false);
       container.invalidate(timerItemListViewModelProvider);
@@ -129,6 +130,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
         ),
       );
 
+      // 이제 Navigator 이동
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => TimerListPage()),

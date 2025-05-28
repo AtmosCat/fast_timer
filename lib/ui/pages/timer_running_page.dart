@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:collection/collection.dart';
 import 'package:fast_timer/data/dao/timer_item_dao.dart';
 import 'package:fast_timer/data/dao/timer_record_dao.dart';
 import 'package:fast_timer/data/model/timer_item.dart';
@@ -459,12 +460,23 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
       context: context,
       builder:
           (ctx) => AlertDialog(
+            backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
             ),
+            titlePadding: const EdgeInsets.only(
+              left: 24,
+              right: 12,
+              top: 24,
+              bottom: 0,
+            ),
             title: Text(
               '타이머 삭제',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: AppColor.gray30.of(context),
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             content: Text('정말 타이머를 삭제하시겠습니까?\n저장된 타이머 기록도 모두 삭제됩니다.'),
             actions: [
@@ -503,24 +515,37 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
 
   Future<void> _editTimer() async {
     final timer = await TimerItemDao().getById(widget.timerId);
-    if (mounted && timer != null) {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => TimerCreatePage(timerItem: timer),
-        ),
-      );
-      // 수정 후 돌아오면 리스트 새로고침
-      ref.invalidate(timerItemListViewModelProvider);
-    }
+    if (!mounted || timer == null) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TimerCreatePage(timerItem: timer),
+      ),
+    );
+
+    // 돌아온 뒤에도 context가 살아있을 때만 invalidate!
+    if (!mounted) return;
+    ref.invalidate(timerItemListViewModelProvider);
   }
 
   @override
   Widget build(BuildContext context) {
-    final timer = ref
-        .watch(timerItemListViewModelProvider)
-        .timers
-        .firstWhere((t) => t.id == widget.timerId);
+    final timers = ref.watch(timerItemListViewModelProvider).timers;
+    final timer =
+        timers.where((t) => t.id == widget.timerId).isNotEmpty
+            ? timers.firstWhere((t) => t.id == widget.timerId)
+            : null;
+
+    if (timer == null) {
+      // 타이머가 삭제된 경우 안전하게 뒤로가기
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (Navigator.canPop(context)) {
+          Navigator.of(context).pop();
+        }
+      });
+      return const SizedBox.shrink();
+    }
 
     // 실시간 남은 시간/진행률 계산
     int remaining = timer.remainingSeconds;
