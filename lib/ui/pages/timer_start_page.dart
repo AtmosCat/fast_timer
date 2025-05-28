@@ -122,10 +122,7 @@ class _TimerRunPageState extends ConsumerState<TimerStartPage> {
             child: Row(
               children: [
                 IconButton(
-                  icon: Icon(
-                    Icons.home,
-                    color: AppColor.gray30.of(context),
-                  ),
+                  icon: Icon(Icons.home, color: AppColor.gray30.of(context)),
                   onPressed: () {
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(builder: (_) => TimerListPage()),
@@ -172,11 +169,11 @@ class _TimerRunPageState extends ConsumerState<TimerStartPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                    Image.asset(
-                      'lib/assets/icons/run.png',
-                      height: 27,
-                      color: AppColor.gray30.of(context),
-                    ),
+                  Image.asset(
+                    'lib/assets/icons/run.png',
+                    height: 27,
+                    color: AppColor.gray30.of(context),
+                  ),
                   const SizedBox(width: 10),
                   Text(
                     widget.timerName,
@@ -310,12 +307,8 @@ class _TimerRunPageState extends ConsumerState<TimerStartPage> {
                       context,
                       MaterialPageRoute(
                         builder:
-                            (context) => TimerRunningPage(
-                              timerId: widget.timerId,
-                              timerName: widget.timerName,
-                              targetSeconds: widget.targetSeconds,
-                              speed: _speed,
-                            ),
+                            (context) =>
+                                TimerRunningPage(timerId: widget.timerId),
                       ),
                     );
                   },

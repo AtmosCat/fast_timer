@@ -57,6 +57,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
         _selectedHour * 3600 + _selectedMinute * 60 + _selectedSecond;
 
     if (timerName.isEmpty) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text("타이머 이름을 입력해 주세요."),
@@ -66,6 +67,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
       return;
     }
     if (totalSeconds == 0) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text("타이머 시간을 1초 이상으로 설정해 주세요."),
@@ -79,60 +81,60 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
       // 수정 모드
       final updatedTimer = widget.timerItem!.copyWith(
         name: timerName,
-        targetSeconds: _selectedHour*3600 + _selectedMinute*60 + _selectedSecond,
+        targetSeconds: totalSeconds,
         speed: _speed,
         remainingSeconds: totalSeconds,
         isRunning: false,
         progress: 1.0,
+        lastStartTime: null,
       );
       await _timerItemRepository.update(updatedTimer);
 
-      // **Provider invalidate로 리스트 새로고침**
-      if (context.mounted) {
-        final container = ProviderScope.containerOf(context, listen: false);
-        container.invalidate(timerItemListViewModelProvider);
+      // Provider invalidate와 Navigator 이동을 context.mounted 체크 후 실행
+      if (!context.mounted) return;
+      final container = ProviderScope.containerOf(context, listen: false);
+      container.invalidate(timerItemListViewModelProvider);
 
-        // **수정 완료 메시지 표시**
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("타이머가 수정되었습니다."),
-            backgroundColor: AppColor.primaryOrange.of(context),
-          ),
-        );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("타이머가 수정되었습니다."),
+          backgroundColor: AppColor.primaryOrange.of(context),
+        ),
+      );
 
-        // **TimerListPage로 이동**
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const TimerListPage()),
-          (route) => false,
-        );
-      }
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const TimerListPage()),
+        (route) => false,
+      );
     } else {
       // 생성 모드
       final timerItem = TimerItem(
         name: timerName,
         speed: _speed,
-        targetSeconds: _selectedHour*3600 + _selectedMinute*60 + _selectedSecond,
+        targetSeconds: totalSeconds,
         remainingSeconds: totalSeconds,
         isRunning: false,
         progress: 1.0,
+        lastStartTime: null,
       );
-      final insertedId = await _timerItemRepository.add(timerItem);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("타이머가 생성되었습니다."),
-            backgroundColor: AppColor.primaryOrange.of(context),
-          ),
-        );
+      await _timerItemRepository.add(timerItem);
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) => TimerListPage(),
-          ),
-        );
-      }
+      // Provider invalidate와 Navigator 이동을 context.mounted 체크 후 실행
+      if (!context.mounted) return;
+      final container = ProviderScope.containerOf(context, listen: false);
+      container.invalidate(timerItemListViewModelProvider);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("타이머가 생성되었습니다."),
+          backgroundColor: AppColor.primaryOrange.of(context),
+        ),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => TimerListPage()),
+      );
     }
   }
 

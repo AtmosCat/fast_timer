@@ -18,108 +18,62 @@ enum TimerState { running, paused }
 
 class TimerRunningPage extends ConsumerStatefulWidget {
   final int timerId;
-  final String timerName;
-  final int targetSeconds;
-  final double speed; // 배속
-
-  const TimerRunningPage({
-    super.key,
-    required this.timerId,
-    required this.timerName,
-    required this.targetSeconds,
-    required this.speed,
-  });
+  const TimerRunningPage({super.key, required this.timerId});
 
   @override
   ConsumerState<TimerRunningPage> createState() => _TimerRunningPageState();
 }
 
 class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
-  late int _remainingSeconds;
-  late double _progress;
   Timer? _timer;
-  late DateTime _realStartTime;
-  Duration _elapsedReal = Duration.zero;
-
-  TimerState _timerState = TimerState.paused; // ★ 항상 paused로 시작
 
   @override
   void initState() {
     super.initState();
-    _resetTimer(); // 전체 시간 채우고 paused 상태
-  }
-
-  void _resetTimer() {
-    _timer?.cancel();
-    setState(() {
-      _remainingSeconds = widget.targetSeconds;
-      _progress = 1.0;
-      _elapsedReal = Duration.zero;
-      _realStartTime = DateTime.now();
-      _timerState = TimerState.paused; // ★ 초기화 시에도 paused
-    });
-  }
-
-  void _startTimer() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _elapsedReal = DateTime.now().difference(_realStartTime);
-        final elapsed = _elapsedReal.inMilliseconds * widget.speed;
-        final elapsedSeconds = (elapsed / 1000).floor();
-        _remainingSeconds = max(widget.targetSeconds - elapsedSeconds, 0);
-        _progress = _remainingSeconds / widget.targetSeconds;
-
-        if (_remainingSeconds <= 0) {
-          _timer?.cancel();
-          _progress = 0.0;
-          _timerState = TimerState.paused; // 끝나면 자동 일시정지
-        }
-      });
-    });
-  }
-
-  void _pauseTimer() {
-    _timer?.cancel();
-    setState(() {
-      _timerState = TimerState.paused;
-    });
-  }
-
-  void _resumeTimer() {
-    setState(() {
-      _realStartTime = DateTime.now().subtract(
-        Duration(
-          milliseconds:
-              ((widget.targetSeconds - _remainingSeconds) *
-                  1000 ~/
-                  widget.speed),
-        ),
-      );
-      _timerState = TimerState.running;
-    });
-    _startTimer();
-  }
-
-  Future<void> _onBackPressed() async {
-    final updated = TimerItem(
-      id: widget.timerId,
-      name: widget.timerName,
-      targetSeconds: widget.targetSeconds,
-      speed: widget.speed,
-      remainingSeconds: _remainingSeconds,
-      isRunning: _timerState == TimerState.running,
-      progress: _progress,
+    // 100ms마다 setState로 실시간 갱신
+    _timer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) => setState(() {}),
     );
-    await TimerItemDao().update(updated);
-    if (mounted) {
-      // Provider invalidate로 즉시 반영
-      ref.read(timerItemListViewModelProvider.notifier).loadTimers();
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => TimerListPage()),
-        (route) => false,
-      );
-    }
+  }
+
+  void _resetTimer(TimerItem timer) {
+    ref.read(timerItemListViewModelProvider.notifier).resetTimer(timer.id!);
+  }
+
+  // void _startTimer() {
+  //   _timer?.cancel();
+  //   _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+  //     setState(() {
+  //       _elapsedReal = DateTime.now().difference(_realStartTime);
+  //       final elapsed = _elapsedReal.inMilliseconds * widget.speed;
+  //       final elapsedSeconds = (elapsed / 1000).floor();
+  //       _remainingSeconds = max(widget.targetSeconds - elapsedSeconds, 0);
+  //       _progress = _remainingSeconds / widget.targetSeconds;
+
+  //       if (_remainingSeconds <= 0) {
+  //         _timer?.cancel();
+  //         _progress = 0.0;
+  //         _timerState = TimerState.paused; // 끝나면 자동 일시정지
+  //       }
+  //     });
+  //   });
+  // }
+
+  void _pauseTimer(TimerItem timer) {
+    ref
+        .read(timerItemListViewModelProvider.notifier)
+        .toggleTimer(timer.id!, false);
+  }
+
+  void _resumeTimer(TimerItem timer) {
+    ref
+        .read(timerItemListViewModelProvider.notifier)
+        .toggleTimer(timer.id!, true);
+  }
+
+  void _onBackPressed() {
+    Navigator.of(context).pop();
   }
 
   @override
@@ -128,12 +82,32 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
     super.dispose();
   }
 
-  Future<String?> _showFinishDialog(BuildContext context) {
-    final int targetSeconds = widget.targetSeconds;
-    final double speed = widget.speed;
-    final int recordedSeconds = widget.targetSeconds - _remainingSeconds;
-    final int realElapsedSeconds = _elapsedReal.inSeconds;
-    final String timerName = widget.timerName;
+  Future<String?> _showFinishDialog(BuildContext context, TimerItem timer) {
+    final int targetSeconds = timer.targetSeconds;
+    final double speed = timer.speed;
+
+    // 실시간 남은 시간 계산
+    int remaining = timer.remainingSeconds;
+    Duration elapsedReal = Duration.zero;
+    if (timer.isRunning && timer.lastStartTime != null) {
+      final elapsed =
+          DateTime.now().difference(timer.lastStartTime!).inMilliseconds *
+          timer.speed;
+      final elapsedSeconds = (elapsed / 1000).floor();
+      remaining = (timer.remainingSeconds - elapsedSeconds).clamp(
+        0,
+        timer.targetSeconds,
+      );
+      elapsedReal = Duration(seconds: timer.targetSeconds - remaining);
+    } else {
+      elapsedReal = Duration(
+        seconds: timer.targetSeconds - timer.remainingSeconds,
+      );
+    }
+
+    final int recordedSeconds = timer.targetSeconds - remaining;
+    final int realElapsedSeconds = elapsedReal.inSeconds;
+    final String timerName = timer.name;
 
     int diff = targetSeconds - realElapsedSeconds;
     int diffH = diff ~/ 3600;
@@ -244,7 +218,7 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                 child: IconButton(
                   icon: Icon(Icons.close, color: AppColor.gray20.of(context)),
                   splashRadius: 18,
-                  onPressed: () => Navigator.pop(ctx, 'paused'), // 닫기: 다시 진행
+                  onPressed: () => Navigator.pop(ctx, null), // 닫기: 다시 진행
                 ),
               ),
             ],
@@ -435,6 +409,34 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
 
   @override
   Widget build(BuildContext context) {
+    final timer = ref
+        .watch(timerItemListViewModelProvider)
+        .timers
+        .firstWhere((t) => t.id == widget.timerId);
+
+    // 실시간 남은 시간/진행률 계산
+    int remaining = timer.remainingSeconds;
+    double progress = timer.progress;
+    Duration elapsedReal = Duration.zero;
+    DateTime realStartTime = timer.lastStartTime ?? DateTime.now();
+
+    if (timer.isRunning && timer.lastStartTime != null) {
+      final elapsed =
+          DateTime.now().difference(timer.lastStartTime!).inMilliseconds *
+          timer.speed;
+      final elapsedSeconds = (elapsed / 1000).floor();
+      remaining = (timer.remainingSeconds - elapsedSeconds).clamp(
+        0,
+        timer.targetSeconds,
+      );
+      progress =
+          timer.targetSeconds > 0 ? remaining / timer.targetSeconds : 0.0;
+      elapsedReal = Duration(seconds: timer.targetSeconds - remaining);
+      realStartTime = timer.lastStartTime!;
+    }
+
+    // 아래에서 remaining, progress, elapsedReal, realStartTime 사용
+
     return Scaffold(
       backgroundColor: AppColor.scaffoldGray.of(context),
       appBar: PreferredSize(
@@ -497,7 +499,7 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    widget.timerName,
+                    timer.name,
                     style: TextStyle(
                       color: AppColor.defaultBlack.of(context),
                       fontSize: 22,
@@ -522,7 +524,7 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                       CustomPaint(
                         size: const Size(260, 260),
                         painter: _TimerProgressPainter(
-                          progress: _progress,
+                          progress: progress,
                           color: AppColor.primaryOrange.of(context),
                         ),
                       ),
@@ -531,7 +533,7 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                         children: [
                           // 목표 시간
                           Text(
-                            _formatHMS(widget.targetSeconds),
+                            _formatHMS(timer.targetSeconds),
                             style: TextStyle(
                               color: AppColor.gray20.of(context),
                               fontSize: 18,
@@ -541,7 +543,7 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                           const SizedBox(height: 8),
                           // 남은 시간
                           Text(
-                            _formatTime(_remainingSeconds),
+                            _formatTime(remaining),
                             style: TextStyle(
                               color: AppColor.defaultBlack.of(context),
                               fontSize: 44,
@@ -565,41 +567,60 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children:
-                    _timerState == TimerState.running
+                    timer.isRunning
                         ? [
-                          // 초기화: 전체 시간 채우고 paused 상태로 전환
+                          // 초기화
                           _circleButton(
                             icon: Icons.refresh,
                             color: AppColor.gray30.of(context),
-                            onPressed: _resetTimer,
+                            onPressed: () => _resetTimer(timer),
                           ),
                           // 일시정지
                           _circleButton(
                             icon: Icons.pause,
                             color: AppColor.primaryRed.of(context),
-                            onPressed: _pauseTimer,
+                            onPressed: () => _pauseTimer(timer),
                           ),
-                          // 종료: TimerListPage로 이동
+                          // 종료
                           _circleButton(
                             icon: Icons.stop,
                             color: AppColor.primaryOrange.of(context),
                             onPressed: () async {
-                              _pauseTimer(); // 타이머를 정지 상태로
-                              final result = await _showFinishDialog(context);
+                              // 1. 종료(저장) 버튼을 누르면 일단 타이머를 일시정지
+                              ref
+                                  .read(timerItemListViewModelProvider.notifier)
+                                  .toggleTimer(widget.timerId, false);
+
+                              // Provider에서 최신 TimerItem을 가져옴
+                              final timer = ref
+                                  .read(timerItemListViewModelProvider)
+                                  .timers
+                                  .firstWhere((t) => t.id == widget.timerId);
+
+                              // 2. Dialog 표시
+                              final result = await _showFinishDialog(
+                                context,
+                                timer,
+                              );
+
                               if (!mounted) return;
 
                               if (result == 'save') {
-                                // DB에 기록 저장 (예시)
+                                // 기록 저장
                                 await TimerRecordDao().insert(
                                   TimerRecord(
-                                    timerId: widget.timerId,
-                                    targetSeconds: widget.targetSeconds,
-                                    speed: widget.speed,
+                                    timerId: timer.id!,
+                                    targetSeconds: timer.targetSeconds,
+                                    speed: timer.speed,
                                     recordedSeconds:
-                                        widget.targetSeconds -
-                                        _remainingSeconds,
-                                    actualSeconds: _elapsedReal.inSeconds,
-                                    startedAt: _realStartTime,
+                                        timer.targetSeconds -
+                                        timer.remainingSeconds,
+                                    actualSeconds:
+                                        (timer.targetSeconds -
+                                            timer.remainingSeconds) ~/
+                                        timer.speed,
+                                    startedAt:
+                                        timer.lastStartTime ?? DateTime.now(),
                                     endedAt: DateTime.now(),
                                   ),
                                 );
@@ -611,13 +632,27 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                     ),
                                   ),
                                 );
+                                // 3. 저장/저장안함 모두 타이머를 초기화
+                                await ref
+                                    .read(
+                                      timerItemListViewModelProvider.notifier,
+                                    )
+                                    .resetTimer(widget.timerId);
+
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
                                     builder: (_) => TimerListPage(),
                                   ),
                                   (route) => false,
                                 );
-                              } else if (result == 'delete' || result == null) {
+                              } else if (result == 'delete') {
+                                // 저장 안 함 → 타이머 초기화
+                                await ref
+                                    .read(
+                                      timerItemListViewModelProvider.notifier,
+                                    )
+                                    .resetTimer(widget.timerId);
+
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
                                     builder: (_) => TimerListPage(),
@@ -625,43 +660,63 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                   (route) => false,
                                 );
                               }
+                              // 닫기(X) 버튼 등은 아무 동작도 하지 않음 (다이얼로그만 닫힘)
                             },
                           ),
                         ]
                         : [
-                          // 초기화: 전체 시간 채우고 paused 상태로 전환
+                          // 초기화
                           _circleButton(
                             icon: Icons.refresh,
                             color: AppColor.gray30.of(context),
-                            onPressed: _resetTimer,
+                            onPressed: () => _resetTimer(timer),
                           ),
                           // 계속
                           _circleButton(
                             icon: Icons.play_arrow,
                             color: AppColor.primaryBlue.of(context),
-                            onPressed: _resumeTimer,
+                            onPressed: () => _resumeTimer(timer),
                           ),
-                          // 종료: TimerListPage로 이동
+                          // 종료
                           _circleButton(
                             icon: Icons.stop,
                             color: AppColor.primaryOrange.of(context),
                             onPressed: () async {
-                              _pauseTimer(); // 타이머를 정지 상태로
-                              final result = await _showFinishDialog(context);
+                              // 1. 종료(저장) 버튼을 누르면 일단 타이머를 일시정지
+                              ref
+                                  .read(timerItemListViewModelProvider.notifier)
+                                  .toggleTimer(widget.timerId, false);
+
+                              // Provider에서 최신 TimerItem을 가져옴
+                              final timer = ref
+                                  .read(timerItemListViewModelProvider)
+                                  .timers
+                                  .firstWhere((t) => t.id == widget.timerId);
+
+                              // 2. Dialog 표시
+                              final result = await _showFinishDialog(
+                                context,
+                                timer,
+                              );
+
                               if (!mounted) return;
 
                               if (result == 'save') {
-                                // DB에 기록 저장 (예시)
+                                // 기록 저장
                                 await TimerRecordDao().insert(
                                   TimerRecord(
-                                    timerId: widget.timerId,
-                                    targetSeconds: widget.targetSeconds,
-                                    speed: widget.speed,
+                                    timerId: timer.id!,
+                                    targetSeconds: timer.targetSeconds,
+                                    speed: timer.speed,
                                     recordedSeconds:
-                                        widget.targetSeconds -
-                                        _remainingSeconds,
-                                    actualSeconds: _elapsedReal.inSeconds,
-                                    startedAt: _realStartTime,
+                                        timer.targetSeconds -
+                                        timer.remainingSeconds,
+                                    actualSeconds:
+                                        (timer.targetSeconds -
+                                            timer.remainingSeconds) ~/
+                                        timer.speed,
+                                    startedAt:
+                                        timer.lastStartTime ?? DateTime.now(),
                                     endedAt: DateTime.now(),
                                   ),
                                 );
@@ -673,13 +728,27 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                     ),
                                   ),
                                 );
+                                // 3. 저장/저장안함 모두 타이머를 초기화
+                                await ref
+                                    .read(
+                                      timerItemListViewModelProvider.notifier,
+                                    )
+                                    .resetTimer(widget.timerId);
+
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
                                     builder: (_) => TimerListPage(),
                                   ),
                                   (route) => false,
                                 );
-                              } else if (result == 'delete' || result == null) {
+                              } else if (result == 'delete') {
+                                // 저장 안 함 → 타이머 초기화
+                                await ref
+                                    .read(
+                                      timerItemListViewModelProvider.notifier,
+                                    )
+                                    .resetTimer(widget.timerId);
+
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
                                     builder: (_) => TimerListPage(),
@@ -687,6 +756,7 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                   (route) => false,
                                 );
                               }
+                              // 닫기(X) 버튼 등은 아무 동작도 하지 않음 (다이얼로그만 닫힘)
                             },
                           ),
                         ],

@@ -17,11 +17,7 @@ class SqlDatabase {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDB,
-    );
+    return await openDatabase(path, version: 1, onCreate: _createDB);
   }
 
   Future _createDB(Database db, int version) async {
@@ -33,7 +29,8 @@ class SqlDatabase {
         speed REAL NOT NULL,
         remainingSeconds INTEGER NOT NULL,
         isRunning INTEGER NOT NULL,
-        progress REAL NOT NULL
+        progress REAL NOT NULL,
+        lastStartTime TEXT
       )
     ''');
 

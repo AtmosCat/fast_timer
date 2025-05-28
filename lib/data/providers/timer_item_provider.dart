@@ -19,3 +19,10 @@ final timerItemProvider = FutureProvider.family<TimerItem?, int>((ref, id) async
   final repo = ref.watch(timerItemRepositoryProvider);
   return await repo.fetchById(id);
 });
+
+final timerTickProvider = StreamProvider<int>((ref) async* {
+  while (true) {
+    await Future.delayed(const Duration(seconds: 1));
+    yield DateTime.now().millisecondsSinceEpoch;
+  }
+});

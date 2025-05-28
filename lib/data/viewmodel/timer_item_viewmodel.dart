@@ -2,43 +2,91 @@ import 'package:fast_timer/data/dao/timer_item_dao.dart';
 import 'package:fast_timer/data/model/timer_item.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class TimerItemNotifier extends StateNotifier<List<TimerItem>> {
-  TimerItemNotifier() : super([]);
-
-  // 타이머 리스트 불러오기
-  Future<void> loadTimers() async {
-    final timers = await TimerItemDao().getAll();
-    state = timers;
+class TimerItemNotifier extends StateNotifier<TimerListState> {
+  TimerItemNotifier() : super(TimerListState.initial()) {
+    loadTimers();
+    _startAutoRefresh();
   }
 
-  // 특정 타이머 상태 업데이트
+  Future<void> loadTimers() async {
+    state = state.copyWith(isLoading: true);
+    final timers = await TimerItemDao().getAll();
+    state = state.copyWith(isLoading: false, timers: timers);
+  }
+
   Future<void> updateTimer(TimerItem updated) async {
     await TimerItemDao().update(updated);
-    state = [
-      for (final t in state)
-        if (t.id == updated.id) updated else t
-    ];
+    await loadTimers();
   }
 
-  // 타이머 초기화
   Future<void> resetTimer(int id) async {
-    final timer = state.firstWhere((t) => t.id == id);
+    final timer = state.timers.firstWhere((t) => t.id == id);
+
     final reset = timer.copyWith(
       remainingSeconds: timer.targetSeconds,
       progress: 1.0,
       isRunning: false,
+      lastStartTime: null,
     );
+
     await updateTimer(reset);
   }
 
-  // 타이머 재생/일시정지 토글
   Future<void> toggleTimer(int id, bool isRunning) async {
-    final timer = state.firstWhere((t) => t.id == id);
-    final updated = timer.copyWith(isRunning: isRunning);
-    await updateTimer(updated);
+    final timer = state.timers.firstWhere((t) => t.id == id);
+
+    if (isRunning) {
+      final updated = timer.copyWith(
+        isRunning: true,
+        lastStartTime: DateTime.now(),
+      );
+      await updateTimer(updated);
+    } else {
+      int newRemaining = timer.remainingSeconds;
+      if (timer.isRunning && timer.lastStartTime != null) {
+        final elapsed =
+            DateTime.now().difference(timer.lastStartTime!).inMilliseconds *
+            timer.speed;
+        final elapsedSeconds = (elapsed / 1000).floor();
+        newRemaining = (timer.remainingSeconds - elapsedSeconds).clamp(
+          0,
+          timer.targetSeconds,
+        );
+      }
+      final updated = timer.copyWith(
+        isRunning: false,
+        remainingSeconds: newRemaining,
+        progress:
+            timer.targetSeconds > 0 ? newRemaining / timer.targetSeconds : 0.0,
+        lastStartTime: null,
+      );
+      await updateTimer(updated);
+    }
+  }
+
+  void _startAutoRefresh() {
+    Stream.periodic(const Duration(seconds: 1)).listen((_) => loadTimers());
   }
 }
 
-final timerItemListViewModelProvider = StateNotifierProvider<TimerItemNotifier, List<TimerItem>>(
-  (ref) => TimerItemNotifier()..loadTimers(),
-);
+final timerItemListViewModelProvider =
+    StateNotifierProvider<TimerItemNotifier, TimerListState>(
+      (ref) => TimerItemNotifier(),
+    );
+
+class TimerListState {
+  final bool isLoading;
+  final List<TimerItem> timers;
+
+  TimerListState({required this.isLoading, required this.timers});
+
+  TimerListState copyWith({bool? isLoading, List<TimerItem>? timers}) {
+    return TimerListState(
+      isLoading: isLoading ?? this.isLoading,
+      timers: timers ?? this.timers,
+    );
+  }
+
+  factory TimerListState.initial() =>
+      TimerListState(isLoading: true, timers: []);
+}
