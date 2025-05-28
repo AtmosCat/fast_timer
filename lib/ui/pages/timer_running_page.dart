@@ -37,28 +37,28 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
     );
   }
 
-  void _resetTimer(TimerItem timer) {
-    ref.read(timerItemListViewModelProvider.notifier).resetTimer(timer.id!);
+  void _resetTimer(TimerItem timer) async {
+    // 1. 먼저 타이머를 일시정지
+    await ref
+        .read(timerItemListViewModelProvider.notifier)
+        .toggleTimer(timer.id!, false);
+
+    // 2. 다이얼로그 띄우기
+    final confirmed = await _showResetConfirmDialog(context, timer);
+
+    // 3. 확인 시에만 초기화
+    if (confirmed == true) {
+      await ref
+          .read(timerItemListViewModelProvider.notifier)
+          .resetTimer(timer.id!);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("타이머가 초기화되었습니다."),
+          backgroundColor: AppColor.primaryOrange.of(context),
+        ),
+      );
+    }
   }
-
-  // void _startTimer() {
-  //   _timer?.cancel();
-  //   _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-  //     setState(() {
-  //       _elapsedReal = DateTime.now().difference(_realStartTime);
-  //       final elapsed = _elapsedReal.inMilliseconds * widget.speed;
-  //       final elapsedSeconds = (elapsed / 1000).floor();
-  //       _remainingSeconds = max(widget.targetSeconds - elapsedSeconds, 0);
-  //       _progress = _remainingSeconds / widget.targetSeconds;
-
-  //       if (_remainingSeconds <= 0) {
-  //         _timer?.cancel();
-  //         _progress = 0.0;
-  //         _timerState = TimerState.paused; // 끝나면 자동 일시정지
-  //       }
-  //     });
-  //   });
-  // }
 
   void _pauseTimer(TimerItem timer) {
     ref
@@ -292,6 +292,114 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                       ),
                       child: const Text(
                         "저장",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool?> _showResetConfirmDialog(BuildContext context, TimerItem timer) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          titlePadding: const EdgeInsets.only(
+            left: 24,
+            right: 12,
+            top: 24,
+            bottom: 0,
+          ),
+          title: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 36),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "타이머를 초기화할까요?",
+                            style: TextStyle(
+                              color: AppColor.gray30.of(context),
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "초기화하면 타이머가 처음 상태로 돌아갑니다.",
+                style: TextStyle(
+                  color: AppColor.gray30.of(context),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColor.gray30.of(context),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        "취소",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColor.primaryOrange.of(context),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        "초기화",
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

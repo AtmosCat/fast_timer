@@ -3,7 +3,6 @@ import 'package:fast_timer/data/model/timer_item.dart';
 import 'package:fast_timer/data/repository/timer_item_repository.dart';
 import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
 import 'package:fast_timer/ui/pages/timer_list_page.dart';
-import 'package:fast_timer/ui/pages/timer_start_page.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fast_timer/theme/colors.dart';
@@ -25,11 +24,10 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
   late double _speed;
   final TextEditingController _nameController = TextEditingController();
 
-  double min = 0.5;
+  double min = 1.0;
   double max = 3.0;
-  int divisions = 10; // (3.0-0.5)/0.25 = 10
 
-  final labelValues = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
+  final labelValues = [1.0,2.0,3.0];
 
   late final TimerItemRepository _timerItemRepository;
 
@@ -372,12 +370,13 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                     child: Slider(
                       min: min,
                       max: max,
-                      divisions: divisions,
-                      label: "x${_speed.toStringAsFixed(2)}",
+                      divisions: ((max - min) / 0.1).round(), // 0.1 단위로 분할
+                      label: "x${_speed.toStringAsFixed(1)}", // 소수점 1자리 표시
                       value: _speed,
                       onChanged: (val) {
                         setState(() {
-                          _speed = (val * 4).round() / 4.0;
+                          // 0.1 단위로 반올림
+                          _speed = (val * 10).round() / 10.0;
                         });
                       },
                     ),
@@ -387,7 +386,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                     children:
                         labelValues.map((value) {
                           return Text(
-                            "  x${value.toStringAsFixed(1)}",
+                            "  x${value.toStringAsFixed(1)}", // 0.2 단위라면 labelValues 리스트에 0.2 간격 값 넣기
                             style: TextStyle(
                               color: AppColor.gray20.of(context),
                               fontSize: 13,
@@ -397,6 +396,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
                   ),
                 ],
               ),
+
               const Spacer(),
               Center(
                 child: SizedBox(
