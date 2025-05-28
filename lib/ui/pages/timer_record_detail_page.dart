@@ -165,6 +165,7 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
   @override
   Widget build(BuildContext context) {
     final records = _records;
+    final reversedRecords = records.reversed.toList();
 
     return Scaffold(
       backgroundColor: AppColor.scaffoldGray.of(context),
@@ -234,7 +235,7 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
               child: SizedBox(
                 height: 180,
                 child:
-                    records.isEmpty
+                    reversedRecords.isEmpty
                         ? Center(
                           child: Text(
                             "기록이 없습니다.",
@@ -250,9 +251,9 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
                             borderData: FlBorderData(show: false),
                             minY: 0,
                             maxY:
-                                records.isEmpty
+                                reversedRecords.isEmpty
                                     ? 10.0
-                                    : records
+                                    : reversedRecords
                                             .map(
                                               (r) => r.actualSeconds.toDouble(),
                                             )
@@ -261,10 +262,15 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
                             lineBarsData: [
                               LineChartBarData(
                                 spots: [
-                                  for (int i = 0; i < records.length; i++)
+                                  for (
+                                    int i = 0;
+                                    i < reversedRecords.length;
+                                    i++
+                                  )
                                     FlSpot(
                                       i.toDouble(),
-                                      records[i].actualSeconds.toDouble(),
+                                      reversedRecords[i].actualSeconds
+                                          .toDouble(),
                                     ),
                                 ],
                                 isCurved: true,
@@ -297,7 +303,8 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
                                 getTooltipItems: (touchedSpots) {
                                   return touchedSpots.map((spot) {
                                     final sec =
-                                        records[spot.spotIndex].actualSeconds;
+                                        reversedRecords[spot.spotIndex]
+                                            .actualSeconds;
                                     return LineTooltipItem(
                                       _formatHMS(sec),
                                       TextStyle(
@@ -316,6 +323,7 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
                         ),
               ),
             ),
+
             const SizedBox(height: 24),
             // 목표, 평균, 최고 기록
             Padding(

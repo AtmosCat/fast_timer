@@ -8,14 +8,65 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fast_timer/theme/colors.dart';
 import 'package:fast_timer/ui/pages/timer_create_page.dart';
 
-class TimerListPage extends ConsumerWidget {
+class TimerListPage extends ConsumerStatefulWidget {
   const TimerListPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TimerListPage> createState() => _TimerListPageState();
+}
+
+class _TimerListPageState extends ConsumerState<TimerListPage> {
+  int? _navigatedTimerId;
+
+  @override
+  void didUpdateWidget(covariant TimerListPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _checkAndNavigateToZeroTimer();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _checkAndNavigateToZeroTimer();
+  }
+
+  void _checkAndNavigateToZeroTimer() {
+    final timers = ref.read(timerItemListViewModelProvider).timers;
+    for (final t in timers) {
+      if (t.remainingSeconds <= 0 && _navigatedTimerId != t.id) {
+        _navigatedTimerId = t.id;
+        // 이미 TimerRunningPage에 있다면 중복 진입 방지
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context)
+                .push(
+                  MaterialPageRoute(
+                    builder: (_) => TimerRunningPage(timerId: t.id!),
+                  ),
+                )
+                .then((_) {
+                  // 돌아오면 다시 진입 허용
+                  _navigatedTimerId = null;
+                });
+          }
+        });
+        break;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // 1초마다 rebuild (timerTickProvider 활용)
     ref.watch(timerTickProvider);
     final state = ref.watch(timerItemListViewModelProvider);
+    final timers = state.timers;
+
+    // 0초 타이머 감지 및 자동 진입
+    _checkAndNavigateToZeroTimer();
+
+    // 1초마다 rebuild (timerTickProvider 활용)
+    ref.watch(timerTickProvider);
 
     if (state.isLoading) {
       return Scaffold(
@@ -62,8 +113,6 @@ class TimerListPage extends ConsumerWidget {
         ),
       );
     }
-
-    final timers = state.timers;
 
     return Scaffold(
       backgroundColor: AppColor.scaffoldGray.of(context),
@@ -117,11 +166,13 @@ class TimerListPage extends ConsumerWidget {
                           now.difference(timer.lastStartTime!).inMilliseconds *
                           timer.speed;
                       final elapsedSeconds = (elapsed / 1000).floor();
-                      remaining = (timer.remainingSeconds - elapsedSeconds)
-                          .clamp(0, timer.targetSeconds);
+                      remaining =
+                          timer.remainingSeconds - elapsedSeconds; // clamp 제거
                       progress =
                           timer.targetSeconds > 0
-                              ? remaining / timer.targetSeconds
+                              ? (remaining > 0
+                                  ? remaining / timer.targetSeconds
+                                  : 0.0)
                               : 0.0;
                     }
 
@@ -233,13 +284,17 @@ class TimerCard extends ConsumerWidget {
                   child: Text(
                     _formatTime(timer.remainingSeconds),
                     style: TextStyle(
-                      color: AppColor.defaultBlack.of(context),
+                      color:
+                          timer.remainingSeconds < 0
+                              ? AppColor.primaryRed.of(context)
+                              : AppColor.defaultBlack.of(context),
                       fontSize: 32,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1.2,
                     ),
                   ),
                 ),
+
                 Row(
                   children: [
                     _smallCircleButton(
@@ -282,23 +337,33 @@ class TimerCard extends ConsumerWidget {
     );
   }
 
-  // 시간 포맷 함수
   String _formatTime(int seconds) {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
-    return "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
+    final isNegative = seconds < 0;
+    final absSeconds = seconds.abs();
+
+    final h = absSeconds ~/ 3600;
+    final m = (absSeconds % 3600) ~/ 60;
+    final s = absSeconds % 60;
+
+    final timeStr =
+        "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
+    return isNegative ? "-$timeStr" : timeStr;
   }
 
   String _formatHMS(int seconds) {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
+    final isNegative = seconds < 0;
+    final absSeconds = seconds.abs();
+
+    final h = absSeconds ~/ 3600;
+    final m = (absSeconds % 3600) ~/ 60;
+    final s = absSeconds % 60;
+
     String result = "";
     if (h > 0) result += "$h시간 ";
     if (m > 0) result += "$m분 ";
     if (s > 0) result += "$s초";
-    return result.isNotEmpty ? result : "0초";
+    if (result.isEmpty) result = "0초";
+    return isNegative ? "-$result" : result;
   }
 }
 
