@@ -26,12 +26,14 @@ class TimerItemNotifier extends StateNotifier<TimerListState> {
   StreamSubscription? _autoRefreshSub;
 
   TimerItemNotifier() : super(TimerListState.initial()) {
-    loadTimers();
+    loadTimers(showLoading: true);
     _startAutoRefresh();
   }
 
-  Future<void> loadTimers() async {
-    state = state.copyWith(isLoading: true);
+  Future<void> loadTimers({bool showLoading = false}) async {
+    if (showLoading) {
+      state = state.copyWith(isLoading: true);
+    }
     final timers = await TimerItemDao().getAll();
     state = state.copyWith(isLoading: false, timers: timers);
   }
@@ -86,10 +88,9 @@ class TimerItemNotifier extends StateNotifier<TimerListState> {
   }
 
   void _startAutoRefresh() {
-    // Stream 구독을 필드에 저장
     _autoRefreshSub = Stream.periodic(
       const Duration(seconds: 1),
-    ).listen((_) => loadTimers());
+    ).listen((_) => loadTimers(showLoading: false));
   }
 
   @override

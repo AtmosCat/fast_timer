@@ -10,6 +10,11 @@ import 'package:fast_timer/ui/pages/timer_create_page.dart';
 import 'package:vibration/vibration.dart';
 
 class TimerListPage extends ConsumerStatefulWidget {
+  static void removeDialogDismissedId(BuildContext context, int id) {
+    final state = context.findAncestorStateOfType<_TimerListPageState>();
+    state?._dialogDismissedTimerIds.remove(id);
+  }
+
   const TimerListPage({super.key});
 
   @override
@@ -19,6 +24,7 @@ class TimerListPage extends ConsumerStatefulWidget {
 class _TimerListPageState extends ConsumerState<TimerListPage> {
   int? _vibratingTimerId;
   bool _isVibrating = false;
+  Set<int> _dialogDismissedTimerIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -38,8 +44,10 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
             final elapsedSeconds = (elapsed / 1000).floor();
             remaining = t.remainingSeconds - elapsedSeconds;
           }
-          print('타이머 ${t.id} 실제 남은 시간: $remaining');
-          if (remaining <= 0 && _vibratingTimerId != t.id) {
+          // 이미 다이얼로그를 본 타이머는 건너뜀
+          if (remaining <= 0 &&
+              _vibratingTimerId != t.id &&
+              !_dialogDismissedTimerIds.contains(t.id)) {
             setState(() {
               _vibratingTimerId = t.id;
               _isVibrating = true;
@@ -105,18 +113,25 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
                           onPressed: () {
                             Vibration.cancel();
                             Navigator.pop(ctx);
+                            setState(() {
+                              _dialogDismissedTimerIds.add(
+                                t.id!,
+                              ); // 다이얼로그 본 타이머 기록
+                              _vibratingTimerId = null;
+                              _isVibrating = false;
+                            });
                             Navigator.of(context)
                                 .push(
                                   MaterialPageRoute(
                                     builder:
-                                        (_) => TimerRunningPage(timerId: t.id!),
+                                        (_) => TimerRunningPage(
+                                          timerId: t.id!,
+                                          dialogAlreadyShown: true,
+                                        ),
                                   ),
                                 )
                                 .then((_) {
-                                  setState(() {
-                                    _vibratingTimerId = null;
-                                    _isVibrating = false;
-                                  });
+                                  // 필요시 여기서도 상태 초기화 가능
                                 });
                           },
                         ),
@@ -256,6 +271,11 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
                           remainingSeconds: remaining,
                           progress: progress,
                         ),
+                        onReset: () {
+                          setState(() {
+                            _dialogDismissedTimerIds.remove(timer.id);
+                          });
+                        },
                       ),
                     );
                   },
@@ -283,8 +303,9 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
 
 class TimerCard extends ConsumerWidget {
   final TimerItem timer;
+  final VoidCallback? onReset;
 
-  const TimerCard({super.key, required this.timer});
+  const TimerCard({super.key, required this.timer, this.onReset});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -364,7 +385,10 @@ class TimerCard extends ConsumerWidget {
                     _smallCircleButton(
                       icon: Icons.refresh,
                       color: AppColor.gray30.of(context),
-                      onPressed: () => notifier.resetTimer(timer.id!),
+                      onPressed: () {
+                        notifier.resetTimer(timer.id!);
+                        if (onReset != null) onReset!();
+                      },
                     ),
                     const SizedBox(width: 6),
                     _smallCircleButton(
@@ -373,9 +397,11 @@ class TimerCard extends ConsumerWidget {
                           timer.isRunning
                               ? AppColor.primaryRed.of(context)
                               : AppColor.primaryBlue.of(context),
-                      onPressed:
-                          () =>
-                              notifier.toggleTimer(timer.id!, !timer.isRunning),
+                      onPressed: () {
+                        notifier.toggleTimer(timer.id!, !timer.isRunning);
+                        if (!timer.isRunning && onReset != null)
+                          onReset!(); // 재생 시에도 초기화
+                      },
                     ),
                   ],
                 ),

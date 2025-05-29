@@ -1,6 +1,7 @@
 import 'package:fast_timer/data/dao/timer_item_dao.dart';
 import 'package:fast_timer/data/dao/timer_record_dao.dart';
 import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
+import 'package:fast_timer/ui/pages/timer_list_page.dart';
 import 'package:flutter/material.dart';
 import 'package:fast_timer/theme/colors.dart';
 import 'package:fast_timer/data/model/timer_item.dart';
@@ -91,6 +92,9 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
         context,
         listen: false,
       ).invalidate(timerItemListViewModelProvider);
+
+      // <<==== 여기 추가!
+      TimerListPage.removeDialogDismissedId(context, widget.timer.id!);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
