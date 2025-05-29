@@ -12,6 +12,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:fast_timer/ui/pages/timer_running_page.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 // --- navigatorKey는 알림 클릭 시 라우팅에 반드시 필요 ---
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -48,6 +49,8 @@ Future<void> initNotification() async {
       ?.requestPermissions(alert: true, badge: true, sound: true);
 }
 
+
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -66,6 +69,9 @@ void main() async {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // 구글 애드몹 설정
+  await MobileAds.instance.initialize();
 
   runApp(const ProviderScope(child: MyApp()));
 }

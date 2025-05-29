@@ -1,6 +1,7 @@
 import 'package:fast_timer/data/model/timer_item.dart';
 import 'package:fast_timer/data/providers/timer_item_provider.dart';
 import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
+import 'package:fast_timer/ui/ads/banner_ad_widget.dart';
 import 'package:fast_timer/ui/pages/notification_settings_page.dart';
 import 'package:fast_timer/ui/pages/timer_running_page.dart';
 import 'package:fast_timer/ui/pages/widgets/custom_bottom_navigation_bar.dart';
@@ -242,7 +243,13 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
         shape: const CircleBorder(),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: CustomBottomNavigationBar(activeIndex: 0),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CustomBottomNavigationBar(activeIndex: 0), // 기존 네비게이션 바
+          const BannerAdWidget(), // 배너 광고
+        ],
+      ),
     );
   }
 }

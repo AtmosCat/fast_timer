@@ -1,4 +1,5 @@
 import 'package:fast_timer/theme/colors.dart';
+import 'package:fast_timer/ui/ads/banner_ad_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -40,6 +41,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('알림 설정')),
+      bottomNavigationBar: const BannerAdWidget(),
       body:
           _loading
               ? const Center(child: CircularProgressIndicator())

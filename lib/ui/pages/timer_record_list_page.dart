@@ -1,3 +1,5 @@
+import 'package:fast_timer/ui/ads/banner_ad_widget.dart';
+import 'package:fast_timer/ui/pages/notification_settings_page.dart';
 import 'package:fast_timer/ui/pages/timer_record_detail_page.dart';
 import 'package:fast_timer/ui/pages/widgets/custom_bottom_navigation_bar.dart';
 import 'package:flutter/material.dart';
@@ -50,10 +52,23 @@ class _TimerRecordListPageState extends State<TimerRecordListPage> {
           ),
         ),
         centerTitle: true,
-        leading: IconButton(
-          onPressed: () {},
-          icon: Icon(Icons.menu, color: AppColor.defaultBlack.of(context)),
-        ),
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationSettingsPage(),
+                ),
+              );
+            },
+            icon: Icon(
+              Icons.settings,
+              color: AppColor.defaultBlack.of(context),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: FutureBuilder<List<_TimerWithRecords>>(
@@ -112,7 +127,13 @@ class _TimerRecordListPageState extends State<TimerRecordListPage> {
           },
         ),
       ),
-      bottomNavigationBar: const CustomBottomNavigationBar(activeIndex: 1),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CustomBottomNavigationBar(activeIndex: 1), // 기존 네비게이션 바
+          const BannerAdWidget(), // 배너 광고
+        ],
+      ),
     );
   }
 }

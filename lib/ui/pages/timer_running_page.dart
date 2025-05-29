@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math';
 import 'package:fast_timer/data/model/timer_record.dart';
 import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
+import 'package:fast_timer/ui/ads/banner_ad_widget.dart';
+import 'package:fast_timer/ui/ads/interstitial_ad.dart';
 import 'package:fast_timer/ui/pages/notification_settings_page.dart';
 import 'package:fast_timer/ui/utils/snackbar_utils.dart';
 import 'package:flutter/material.dart';
@@ -588,6 +590,7 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
 
     return Scaffold(
       backgroundColor: AppColor.scaffoldGray.of(context),
+      bottomNavigationBar: const BannerAdWidget(),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(56),
         child: SafeArea(
@@ -790,17 +793,18 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                   ),
                                 );
                                 SnackbarUtil.showToastMessage('기록이 저장되었습니다!');
-                                await ref
-                                    .read(
-                                      timerItemListViewModelProvider.notifier,
-                                    )
-                                    .resetTimer(widget.timerId);
-                                Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(
-                                    builder: (_) => TimerListPage(),
-                                  ),
-                                  (route) => false,
-                                );
+
+                                // 전면 광고 띄우고, 광고 닫힌 뒤에만 화면 이동
+                                await showInterstitialAd(context, () {
+                                  if (mounted) {
+                                    Navigator.of(context).pushAndRemoveUntil(
+                                      MaterialPageRoute(
+                                        builder: (_) => TimerListPage(),
+                                      ),
+                                      (route) => false,
+                                    );
+                                  }
+                                });
                               } else if (result == 'delete') {
                                 SnackbarUtil.showToastMessage(
                                   '기록을 저장하지 않고 초기화되었습니다.',
@@ -897,17 +901,18 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                   ),
                                 );
                                 SnackbarUtil.showToastMessage('기록이 저장되었습니다!');
-                                await ref
-                                    .read(
-                                      timerItemListViewModelProvider.notifier,
-                                    )
-                                    .resetTimer(widget.timerId);
-                                Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(
-                                    builder: (_) => TimerListPage(),
-                                  ),
-                                  (route) => false,
-                                );
+
+                                // 전면 광고 띄우고, 광고 닫힌 뒤에만 화면 이동
+                                await showInterstitialAd(context, () {
+                                  if (mounted) {
+                                    Navigator.of(context).pushAndRemoveUntil(
+                                      MaterialPageRoute(
+                                        builder: (_) => TimerListPage(),
+                                      ),
+                                      (route) => false,
+                                    );
+                                  }
+                                });
                               } else if (result == 'delete') {
                                 SnackbarUtil.showToastMessage(
                                   '기록을 저장하지 않고 초기화되었습니다.',

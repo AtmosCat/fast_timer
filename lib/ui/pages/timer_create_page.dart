@@ -2,6 +2,7 @@ import 'package:fast_timer/data/dao/timer_item_dao.dart';
 import 'package:fast_timer/data/model/timer_item.dart';
 import 'package:fast_timer/data/repository/timer_item_repository.dart';
 import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
+import 'package:fast_timer/ui/ads/banner_ad_widget.dart';
 import 'package:fast_timer/ui/pages/timer_list_page.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -146,6 +147,7 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         backgroundColor: AppColor.scaffoldGray.of(context),
+        bottomNavigationBar: const BannerAdWidget(),
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: SafeArea(

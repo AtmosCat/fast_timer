@@ -1,6 +1,7 @@
 import 'package:fast_timer/data/dao/timer_item_dao.dart';
 import 'package:fast_timer/data/dao/timer_record_dao.dart';
 import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
+import 'package:fast_timer/ui/ads/banner_ad_widget.dart';
 import 'package:fast_timer/ui/pages/timer_list_page.dart';
 import 'package:flutter/material.dart';
 import 'package:fast_timer/theme/colors.dart';
@@ -93,7 +94,6 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
         listen: false,
       ).invalidate(timerItemListViewModelProvider);
 
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -171,6 +171,7 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
 
     return Scaffold(
       backgroundColor: AppColor.scaffoldGray.of(context),
+      bottomNavigationBar: const BannerAdWidget(),
       appBar: AppBar(
         backgroundColor: AppColor.containerWhite.of(context),
         elevation: 1,
