@@ -181,254 +181,281 @@ class _TimerCreatePageState extends State<TimerCreatePage> {
             ),
           ),
         ),
-        body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 18),
-              SizedBox(
-                height: 350,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Text(
-                            "시간",
-                            style: TextStyle(
-                              color: AppColor.gray20.of(context),
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
+        // --- 여기부터 수정 ---
+        body: SafeArea(
+          child: SingleChildScrollView(
+            // 키보드가 올라와도 스크롤 가능!
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight:
+                      MediaQuery.of(context).size.height -
+                      MediaQuery.of(context).padding.top -
+                      kToolbarHeight, // 앱바 높이만큼 빼기
+                ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        height: 350,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "시간",
+                                    style: TextStyle(
+                                      color: AppColor.gray20.of(context),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Expanded(
+                                    child: _TimePicker(
+                                      value: _selectedHour,
+                                      max: 23,
+                                      onSelectedItemChanged:
+                                          (val) => setState(
+                                            () => _selectedHour = val,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: _TimePicker(
-                              value: _selectedHour,
-                              max: 23,
-                              onSelectedItemChanged:
-                                  (val) => setState(() => _selectedHour = val),
+                            Center(
+                              child: Text(
+                                "\n:",
+                                style: TextStyle(
+                                  color: AppColor.gray20.of(context),
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Center(
-                      child: Text(
-                        "\n:",
-                        style: TextStyle(
-                          color: AppColor.gray20.of(context),
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "분",
+                                    style: TextStyle(
+                                      color: AppColor.gray20.of(context),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Expanded(
+                                    child: _TimePicker(
+                                      value: _selectedMinute,
+                                      max: 59,
+                                      onSelectedItemChanged:
+                                          (val) => setState(
+                                            () => _selectedMinute = val,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Center(
+                              child: Text(
+                                "\n:",
+                                style: TextStyle(
+                                  color: AppColor.gray20.of(context),
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "초",
+                                    style: TextStyle(
+                                      color: AppColor.gray20.of(context),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Expanded(
+                                    child: _TimePicker(
+                                      value: _selectedSecond,
+                                      max: 59,
+                                      onSelectedItemChanged:
+                                          (val) => setState(
+                                            () => _selectedSecond = val,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Text(
-                            "분",
-                            style: TextStyle(
-                              color: AppColor.gray20.of(context),
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: _TimePicker(
-                              value: _selectedMinute,
-                              max: 59,
-                              onSelectedItemChanged:
-                                  (val) =>
-                                      setState(() => _selectedMinute = val),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Center(
-                      child: Text(
-                        "\n:",
+                      Text(
+                        "타이머 이름",
                         style: TextStyle(
-                          color: AppColor.gray20.of(context),
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
+                          color: AppColor.gray30.of(context),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Text(
-                            "초",
-                            style: TextStyle(
-                              color: AppColor.gray20.of(context),
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _nameController,
+                        style: TextStyle(
+                          color: AppColor.defaultBlack.of(context),
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: "예시: 중간고사 대비",
+                          hintStyle: TextStyle(
+                            color: AppColor.gray10.of(context),
+                            fontSize: 16,
+                            fontWeight: FontWeight.normal,
+                          ),
+                          filled: true,
+                          fillColor: AppColor.containerWhite.of(context),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 16,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: AppColor.primaryOrange.of(context),
+                              width: 2,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: _TimePicker(
-                              value: _selectedSecond,
-                              max: 59,
-                              onSelectedItemChanged:
-                                  (val) =>
-                                      setState(() => _selectedSecond = val),
+                        ),
+                      ),
+                      SizedBox(height: 24),
+                      // 배속 설정 라벨
+                      Text(
+                        "배속 설정",
+                        style: TextStyle(
+                          color: AppColor.gray30.of(context),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      // 슬라이더
+                      Column(
+                        children: [
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 5,
+                              activeTrackColor: AppColor.primaryOrange.of(
+                                context,
+                              ),
+                              inactiveTrackColor: AppColor.containerLightGray20
+                                  .of(context),
+                              thumbColor: AppColor.primaryOrange.of(context),
+                              overlayColor: AppColor.primaryOrange
+                                  .of(context)
+                                  .withOpacity(0.15),
+                              valueIndicatorColor: AppColor.primaryOrange.of(
+                                context,
+                              ),
+                              thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 13,
+                              ),
+                              valueIndicatorTextStyle: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
+                            child: Slider(
+                              min: min,
+                              max: max,
+                              divisions:
+                                  ((max - min) / 0.1).round(), // 0.1 단위로 분할
+                              label:
+                                  "x${_speed.toStringAsFixed(1)}", // 소수점 1자리 표시
+                              value: _speed,
+                              onChanged: (val) {
+                                setState(() {
+                                  // 0.1 단위로 반올림
+                                  _speed = (val * 10).round() / 10.0;
+                                });
+                              },
+                            ),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children:
+                                labelValues.map((value) {
+                                  return Text(
+                                    "  x${value.toStringAsFixed(1)}",
+                                    style: TextStyle(
+                                      color: AppColor.gray20.of(context),
+                                      fontSize: 13,
+                                    ),
+                                  );
+                                }).toList(),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                "타이머 이름",
-                style: TextStyle(
-                  color: AppColor.gray30.of(context),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _nameController,
-                style: TextStyle(
-                  color: AppColor.defaultBlack.of(context),
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                ),
-                decoration: InputDecoration(
-                  hintText: "예시: 중간고사 대비",
-                  hintStyle: TextStyle(
-                    color: AppColor.gray10.of(context),
-                    fontSize: 16,
-                    fontWeight: FontWeight.normal,
-                  ),
-                  filled: true,
-                  fillColor: AppColor.containerWhite.of(context),
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 16,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: AppColor.primaryOrange.of(context),
-                      width: 2,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 24),
-              // 배속 설정 라벨
-              Text(
-                "배속 설정",
-                style: TextStyle(
-                  color: AppColor.gray30.of(context),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: 10),
-              // 슬라이더
-              Column(
-                children: [
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 5,
-                      activeTrackColor: AppColor.primaryOrange.of(context),
-                      inactiveTrackColor: AppColor.containerLightGray20.of(
-                        context,
-                      ),
-                      thumbColor: AppColor.primaryOrange.of(context),
-                      overlayColor: AppColor.primaryOrange
-                          .of(context)
-                          .withOpacity(0.15),
-                      valueIndicatorColor: AppColor.primaryOrange.of(context),
-                      thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 13,
-                      ),
-                      valueIndicatorTextStyle: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    child: Slider(
-                      min: min,
-                      max: max,
-                      divisions: ((max - min) / 0.1).round(), // 0.1 단위로 분할
-                      label: "x${_speed.toStringAsFixed(1)}", // 소수점 1자리 표시
-                      value: _speed,
-                      onChanged: (val) {
-                        setState(() {
-                          // 0.1 단위로 반올림
-                          _speed = (val * 10).round() / 10.0;
-                        });
-                      },
-                    ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children:
-                        labelValues.map((value) {
-                          return Text(
-                            "  x${value.toStringAsFixed(1)}", // 0.2 단위라면 labelValues 리스트에 0.2 간격 값 넣기
-                            style: TextStyle(
-                              color: AppColor.gray20.of(context),
-                              fontSize: 13,
+                      const Spacer(),
+                      Center(
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: ElevatedButton(
+                            onPressed: _onSavePressed,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColor.primaryOrange.of(
+                                context,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                              elevation: 0,
                             ),
-                          );
-                        }).toList(),
-                  ),
-                ],
-              ),
-
-              const Spacer(),
-              Center(
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton(
-                    onPressed: _onSavePressed,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColor.primaryOrange.of(context),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(28),
+                            child: Text(
+                              isEdit ? "타이머 수정" : "타이머 생성",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      isEdit ? "타이머 수정" : "타이머 생성",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
+                      const SizedBox(height: 70),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 70),
-            ],
+            ),
           ),
         ),
+        // --- 여기까지 수정 ---
       ),
     );
   }

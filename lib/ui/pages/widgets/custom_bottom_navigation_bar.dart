@@ -89,7 +89,6 @@ class _BottomNavTab extends StatelessWidget {
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               ),
             ),
-            const SizedBox(height: 12),
           ],
         ),
       ),

@@ -649,7 +649,7 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
           child: Text(
             value,
             style: TextStyle(
-              color: AppColor.defaultBlack.of(context),
+              color: AppColor.gray20.of(context),
               fontWeight: FontWeight.w600,
               fontSize: 15,
             ),

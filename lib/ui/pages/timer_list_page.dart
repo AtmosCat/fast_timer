@@ -18,6 +18,8 @@ class TimerListPage extends ConsumerStatefulWidget {
 }
 
 class _TimerListPageState extends ConsumerState<TimerListPage> {
+  Map<int, int> _prevRemaining = {};
+
   @override
   Widget build(BuildContext context) {
     ref.watch(timerTickProvider);
@@ -34,7 +36,8 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
           final elapsedSeconds = (elapsed / 1000).floor();
           remaining = t.remainingSeconds - elapsedSeconds;
         }
-        // 이미 알림을 보낸 타이머는 건너뜀 (전역 Set 사용)
+
+        // 알림 발송
         if (remaining <= 0 && !notificationSentTimerIds.contains(t.id)) {
           setState(() {
             notificationSentTimerIds.add(t.id!);
@@ -56,6 +59,17 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
             payload: t.id!.toString(),
           );
         }
+
+        // 0초 이하였다가 0초 이상이 된 경우 Set에서 id 제거
+        if (_prevRemaining[t.id] != null &&
+            _prevRemaining[t.id]! <= 0 &&
+            remaining > 0 &&
+            notificationSentTimerIds.contains(t.id)) {
+          setState(() {
+            notificationSentTimerIds.remove(t.id);
+          });
+        }
+        _prevRemaining[t.id!] = remaining;
       }
     });
 
@@ -183,11 +197,6 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
                           remainingSeconds: remaining,
                           progress: progress,
                         ),
-                        onReset: () {
-                          setState(() {
-                            notificationSentTimerIds.remove(timer.id); // ★ 여기!
-                          });
-                        },
                       ),
                     );
                   },
