@@ -7,14 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fast_timer/theme/colors.dart';
 import 'package:fast_timer/ui/pages/timer_create_page.dart';
-import 'package:vibration/vibration.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:fast_timer/main.dart'; // navigatorKey, flutterLocalNotificationsPlugin import
 
 class TimerListPage extends ConsumerStatefulWidget {
-  static void removeDialogDismissedId(BuildContext context, int id) {
-    final state = context.findAncestorStateOfType<_TimerListPageState>();
-    state?._dialogDismissedTimerIds.remove(id);
-  }
-
   const TimerListPage({super.key});
 
   @override
@@ -22,127 +18,43 @@ class TimerListPage extends ConsumerStatefulWidget {
 }
 
 class _TimerListPageState extends ConsumerState<TimerListPage> {
-  int? _vibratingTimerId;
-  bool _isVibrating = false;
-  Set<int> _dialogDismissedTimerIds = {};
-
   @override
   Widget build(BuildContext context) {
     ref.watch(timerTickProvider);
     final state = ref.watch(timerItemListViewModelProvider);
     final timers = state.timers;
 
-    // 0초 타이머 감지 및 진동/다이얼로그
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!_isVibrating) {
-        final now = DateTime.now();
-        for (final t in timers) {
-          int remaining = t.remainingSeconds;
-          if (t.isRunning && t.lastStartTime != null) {
-            final elapsed =
-                now.difference(t.lastStartTime!).inMilliseconds * t.speed;
-            final elapsedSeconds = (elapsed / 1000).floor();
-            remaining = t.remainingSeconds - elapsedSeconds;
-          }
-          // 이미 다이얼로그를 본 타이머는 건너뜀
-          if (remaining <= 0 &&
-              _vibratingTimerId != t.id &&
-              !_dialogDismissedTimerIds.contains(t.id)) {
-            setState(() {
-              _vibratingTimerId = t.id;
-              _isVibrating = true;
-            });
-            if (await Vibration.hasVibrator() ?? false) {
-              Vibration.vibrate(
-                pattern: [0, 500, 500, 500, 500, 500],
-                repeat: 0,
-              );
-            }
-            if (mounted) {
-              await showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (ctx) {
-                  return AlertDialog(
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    title: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          "타이머가 종료되었습니다!",
-                          style: TextStyle(
-                            color: AppColor.primaryOrange.of(context),
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        Image.asset(
-                          'lib/assets/icons/timer.png',
-                          height: 60,
-                          color: AppColor.primaryOrange.of(context),
-                        ),
-                      ],
-                    ),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ElevatedButton.icon(
-                          icon: Icon(Icons.vibration, color: Colors.white),
-                          label: Text(
-                            "진동 해제 및 타이머로 이동",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.amber,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 28,
-                              vertical: 12,
-                            ),
-                          ),
-                          onPressed: () {
-                            Vibration.cancel();
-                            Navigator.pop(ctx);
-                            setState(() {
-                              _dialogDismissedTimerIds.add(
-                                t.id!,
-                              ); // 다이얼로그 본 타이머 기록
-                              _vibratingTimerId = null;
-                              _isVibrating = false;
-                            });
-                            Navigator.of(context)
-                                .push(
-                                  MaterialPageRoute(
-                                    builder:
-                                        (_) => TimerRunningPage(
-                                          timerId: t.id!,
-                                          dialogAlreadyShown: true,
-                                        ),
-                                  ),
-                                )
-                                .then((_) {
-                                  // 필요시 여기서도 상태 초기화 가능
-                                });
-                          },
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            }
-            break;
-          }
+      final now = DateTime.now();
+      for (final t in timers) {
+        int remaining = t.remainingSeconds;
+        if (t.isRunning && t.lastStartTime != null) {
+          final elapsed =
+              now.difference(t.lastStartTime!).inMilliseconds * t.speed;
+          final elapsedSeconds = (elapsed / 1000).floor();
+          remaining = t.remainingSeconds - elapsedSeconds;
+        }
+        // 이미 알림을 보낸 타이머는 건너뜀 (전역 Set 사용)
+        if (remaining <= 0 && !notificationSentTimerIds.contains(t.id)) {
+          setState(() {
+            notificationSentTimerIds.add(t.id!);
+          });
+          await flutterLocalNotificationsPlugin.show(
+            t.id!,
+            t.name,
+            '타이머가 종료되었습니다!',
+            const NotificationDetails(
+              android: AndroidNotificationDetails(
+                'timer_channel',
+                '타이머',
+                channelDescription: '타이머 알림',
+                importance: Importance.max,
+                priority: Priority.high,
+              ),
+              iOS: DarwinNotificationDetails(),
+            ),
+            payload: t.id!.toString(),
+          );
         }
       }
     });
@@ -273,7 +185,7 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
                         ),
                         onReset: () {
                           setState(() {
-                            _dialogDismissedTimerIds.remove(timer.id);
+                            notificationSentTimerIds.remove(timer.id); // ★ 여기!
                           });
                         },
                       ),
@@ -294,7 +206,6 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
         child: const Icon(Icons.add, color: Colors.white),
         shape: const CircleBorder(),
       ),
-
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: CustomBottomNavigationBar(activeIndex: 0),
     );
@@ -362,7 +273,7 @@ class TimerCard extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -379,7 +290,6 @@ class TimerCard extends ConsumerWidget {
                     ),
                   ),
                 ),
-
                 Row(
                   children: [
                     _smallCircleButton(
@@ -387,9 +297,10 @@ class TimerCard extends ConsumerWidget {
                       color: AppColor.gray30.of(context),
                       onPressed: () {
                         notifier.resetTimer(timer.id!);
-                        if (onReset != null) onReset!();
+                        if (onReset != null) onReset!(); // ★ 여기!
                       },
                     ),
+
                     const SizedBox(width: 6),
                     _smallCircleButton(
                       icon: timer.isRunning ? Icons.pause : Icons.play_arrow,
@@ -426,35 +337,35 @@ class TimerCard extends ConsumerWidget {
       ),
     );
   }
+}
 
-  String _formatTime(int seconds) {
-    final isNegative = seconds < 0;
-    final absSeconds = seconds.abs();
+String _formatHMS(int seconds) {
+  final isNegative = seconds < 0;
+  final absSeconds = seconds.abs();
 
-    final h = absSeconds ~/ 3600;
-    final m = (absSeconds % 3600) ~/ 60;
-    final s = absSeconds % 60;
+  final h = absSeconds ~/ 3600;
+  final m = (absSeconds % 3600) ~/ 60;
+  final s = absSeconds % 60;
 
-    final timeStr =
-        "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
-    return isNegative ? "-$timeStr" : timeStr;
-  }
+  String result = "";
+  if (h > 0) result += "$h시간 ";
+  if (m > 0) result += "$m분 ";
+  if (s > 0) result += "$s초";
+  if (result.isEmpty) result = "0초";
+  return isNegative ? "-$result" : result;
+}
 
-  String _formatHMS(int seconds) {
-    final isNegative = seconds < 0;
-    final absSeconds = seconds.abs();
+String _formatTime(int seconds) {
+  final isNegative = seconds < 0;
+  final absSeconds = seconds.abs();
 
-    final h = absSeconds ~/ 3600;
-    final m = (absSeconds % 3600) ~/ 60;
-    final s = absSeconds % 60;
+  final h = absSeconds ~/ 3600;
+  final m = (absSeconds % 3600) ~/ 60;
+  final s = absSeconds % 60;
 
-    String result = "";
-    if (h > 0) result += "$h시간 ";
-    if (m > 0) result += "$m분 ";
-    if (s > 0) result += "$s초";
-    if (result.isEmpty) result = "0초";
-    return isNegative ? "-$result" : result;
-  }
+  final timeStr =
+      "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
+  return isNegative ? "-$timeStr" : timeStr;
 }
 
 Widget _smallCircleButton({

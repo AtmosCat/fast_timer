@@ -5,24 +5,20 @@ import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
 import 'package:fast_timer/ui/utils/snackbar_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:vibration/vibration.dart';
 import 'package:fast_timer/data/model/timer_item.dart';
 import 'package:fast_timer/data/dao/timer_item_dao.dart';
 import 'package:fast_timer/data/dao/timer_record_dao.dart';
 import 'package:fast_timer/theme/colors.dart';
 import 'package:fast_timer/ui/pages/timer_list_page.dart';
 import 'package:fast_timer/ui/pages/timer_create_page.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:fast_timer/main.dart'; // navigatorKey, flutterLocalNotificationsPlugin import
 
 enum TimerState { running, paused }
 
 class TimerRunningPage extends ConsumerStatefulWidget {
   final int timerId;
-  final bool dialogAlreadyShown;
-  const TimerRunningPage({
-    super.key,
-    required this.timerId,
-    this.dialogAlreadyShown = false,
-  });
+  const TimerRunningPage({super.key, required this.timerId});
 
   @override
   ConsumerState<TimerRunningPage> createState() => _TimerRunningPageState();
@@ -30,14 +26,12 @@ class TimerRunningPage extends ConsumerStatefulWidget {
 
 class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
   Timer? _timer;
-  late bool _dialogShown;
-  bool _isVibrating = false; // 진동 중 여부
   bool _isResetting = false;
+  int? _prevRemaining;
 
   @override
   void initState() {
     super.initState();
-    _dialogShown = widget.dialogAlreadyShown; // ← 여기!
     _timer = Timer.periodic(
       const Duration(milliseconds: 100),
       (_) => setState(() {}),
@@ -69,8 +63,7 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
   Future<void> _resetTimer(TimerItem timer) async {
     setState(() {
       _isResetting = true;
-      _dialogShown = false;
-      _isVibrating = false;
+      // notificationSentTimerIds.remove(timer.id!); // 이 줄 삭제!
     });
 
     await ref
@@ -91,7 +84,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
       );
     }
 
-    // 초기화 완료 후 200ms 정도 대기 후 플래그 해제(빌드 타이밍 문제 방지)
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) setState(() => _isResetting = false);
     });
@@ -101,26 +93,13 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
     final int targetSeconds = timer.targetSeconds;
     final double speed = timer.speed;
 
-    // 남은 시간 계산: isRunning이 아니어도 lastStartTime이 있으면 오버타임 반영
     int remaining = timer.remainingSeconds;
-    // if (timer.lastStartTime != null) {
-    //   final elapsed =
-    //       DateTime.now().difference(timer.lastStartTime!).inMilliseconds *
-    //       timer.speed;
-    //   final elapsedSeconds = (elapsed / 1000).floor();
-    //   remaining = timer.remainingSeconds - elapsedSeconds;
-    // }
-
     final int realElapsedSeconds = timer.targetSeconds - remaining;
     final String timerName = timer.name;
 
-    // 오버타임(0초 이후 더 걸린 시간)
     int overtime = realElapsedSeconds - targetSeconds;
-
-    // diff: 목표 - 실제 (양수면 빠름, 0이면 딱 맞춤, 음수면 느림)
     int diff = targetSeconds - realElapsedSeconds;
 
-    // 문구 결정
     String resultMessage;
     if (realElapsedSeconds > targetSeconds) {
       resultMessage = "느리게 목표를 달성했어요!";
@@ -503,12 +482,11 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
           ),
     );
     if (confirmed == true) {
+      notificationSentTimerIds.remove(widget.timerId); // ★ 추가
+      await TimerItemDao().delete(widget.timerId);
       await TimerItemDao().delete(widget.timerId);
       await TimerRecordDao().delete(widget.timerId);
       ref.invalidate(timerItemListViewModelProvider);
-
-      // <- 여기서 제거!
-      TimerListPage.removeDialogDismissedId(context, widget.timerId);
 
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
@@ -566,81 +544,42 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
               : 0.0;
     }
 
-    // 0초가 되면 진동+다이얼로그
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!_dialogShown && !_isResetting && remaining <= 0) {
-        _dialogShown = true;
-        if (!_isVibrating && await Vibration.hasVibrator() ?? false) {
-          _isVibrating = true;
-          Vibration.vibrate(pattern: [0, 500, 500, 500, 500, 500], repeat: 0);
-        }
-        if (mounted) {
-          await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (ctx) {
-              return AlertDialog(
-                backgroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      "타이머가 종료되었습니다!",
-                      style: TextStyle(
-                        color: AppColor.primaryOrange.of(context),
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    Image.asset(
-                      'lib/assets/icons/timer.png',
-                      height: 60,
-                      color: AppColor.primaryOrange.of(context),
-                    ),
-                  ],
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ElevatedButton.icon(
-                      icon: Icon(Icons.vibration, color: Colors.white),
-                      label: Text(
-                        "진동 해제",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.amber,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 28,
-                          vertical: 12,
-                        ),
-                      ),
-                      onPressed: () {
-                        Vibration.cancel();
-                        Navigator.pop(ctx);
-                        setState(() {
-                          _isVibrating = false;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        }
+      // 1. 알림 발송
+      if (!_isResetting &&
+          remaining <= 0 &&
+          !notificationSentTimerIds.contains(timer.id)) {
+        setState(() {
+          notificationSentTimerIds.add(timer.id!);
+        });
+        await flutterLocalNotificationsPlugin.show(
+          timer.id!,
+          timer.name,
+          '타이머가 종료되었습니다!',
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'timer_channel',
+              '타이머',
+              channelDescription: '타이머 알림',
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+            iOS: DarwinNotificationDetails(),
+          ),
+          payload: timer.id!.toString(),
+        );
       }
+
+      // 2. 타이머가 0초 이하였다가 0초 이상이 된 경우 Set에서 id 제거
+      if (_prevRemaining != null &&
+          _prevRemaining! <= 0 &&
+          remaining > 0 &&
+          notificationSentTimerIds.contains(timer.id)) {
+        setState(() {
+          notificationSentTimerIds.remove(timer.id);
+        });
+      }
+      _prevRemaining = remaining;
     });
 
     return Scaffold(
@@ -828,10 +767,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                               if (!mounted) return;
 
                               if (result == 'save') {
-                                setState(() {
-                                  _dialogShown = false;
-                                  _isVibrating = false;
-                                });
                                 await TimerRecordDao().insert(
                                   TimerRecord(
                                     timerId: updatedTimer.id!,
@@ -863,10 +798,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                   (route) => false,
                                 );
                               } else if (result == 'delete') {
-                                setState(() {
-                                  _dialogShown = false;
-                                  _isVibrating = false;
-                                });
                                 SnackbarUtil.showToastMessage(
                                   '기록을 저장하지 않고 초기화되었습니다.',
                                 );
@@ -943,10 +874,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                               if (!mounted) return;
 
                               if (result == 'save') {
-                                setState(() {
-                                  _dialogShown = false;
-                                  _isVibrating = false;
-                                });
                                 await TimerRecordDao().insert(
                                   TimerRecord(
                                     timerId: updatedTimer.id!,
@@ -978,10 +905,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                   (route) => false,
                                 );
                               } else if (result == 'delete') {
-                                setState(() {
-                                  _dialogShown = false;
-                                  _isVibrating = false;
-                                });
                                 SnackbarUtil.showToastMessage(
                                   '기록을 저장하지 않고 초기화되었습니다.',
                                 );

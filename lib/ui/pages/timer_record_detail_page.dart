@@ -93,8 +93,6 @@ class _TimerRecordDetailPageState extends State<TimerRecordDetailPage> {
         listen: false,
       ).invalidate(timerItemListViewModelProvider);
 
-      // <<==== 여기 추가!
-      TimerListPage.removeDialogDismissedId(context, widget.timer.id!);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
