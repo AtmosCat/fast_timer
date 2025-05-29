@@ -1,6 +1,7 @@
 import 'package:fast_timer/data/model/timer_item.dart';
 import 'package:fast_timer/data/providers/timer_item_provider.dart';
 import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
+import 'package:fast_timer/ui/pages/notification_settings_page.dart';
 import 'package:fast_timer/ui/pages/timer_running_page.dart';
 import 'package:fast_timer/ui/pages/widgets/custom_bottom_navigation_bar.dart';
 import 'package:flutter/material.dart';
@@ -37,27 +38,30 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
           remaining = t.remainingSeconds - elapsedSeconds;
         }
 
-        // 알림 발송
+        // 알림 발송 (설정이 켜져 있을 때만)
         if (remaining <= 0 && !notificationSentTimerIds.contains(t.id)) {
-          setState(() {
-            notificationSentTimerIds.add(t.id!);
-          });
-          await flutterLocalNotificationsPlugin.show(
-            t.id!,
-            t.name,
-            '타이머가 종료되었습니다!',
-            const NotificationDetails(
-              android: AndroidNotificationDetails(
-                'timer_channel',
-                '타이머',
-                channelDescription: '타이머 알림',
-                importance: Importance.max,
-                priority: Priority.high,
+          final enabled = await NotificationSettings.getNotificationEnabled();
+          if (enabled) {
+            setState(() {
+              notificationSentTimerIds.add(t.id!);
+            });
+            await flutterLocalNotificationsPlugin.show(
+              t.id!,
+              t.name,
+              '타이머가 종료되었습니다!',
+              const NotificationDetails(
+                android: AndroidNotificationDetails(
+                  'timer_channel',
+                  '타이머',
+                  channelDescription: '타이머 알림',
+                  importance: Importance.max,
+                  priority: Priority.high,
+                ),
+                iOS: DarwinNotificationDetails(),
               ),
-              iOS: DarwinNotificationDetails(),
-            ),
-            payload: t.id!.toString(),
-          );
+              payload: t.id!.toString(),
+            );
+          }
         }
 
         // 0초 이하였다가 0초 이상이 된 경우 Set에서 id 제거
@@ -88,12 +92,23 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
             ),
           ),
           centerTitle: true,
-          leading: IconButton(
-            onPressed: () {
-              // 메뉴 또는 뒤로가기 액션
-            },
-            icon: Icon(Icons.menu, color: AppColor.defaultBlack.of(context)),
-          ),
+          automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationSettingsPage(),
+                  ),
+                );
+              },
+              icon: Icon(
+                Icons.settings,
+                color: AppColor.defaultBlack.of(context),
+              ),
+            ),
+          ],
         ),
         body: SafeArea(
           child: Center(
@@ -133,12 +148,23 @@ class _TimerListPageState extends ConsumerState<TimerListPage> {
           ),
         ),
         centerTitle: true,
-        leading: IconButton(
-          onPressed: () {
-            // 메뉴 또는 뒤로가기 액션
-          },
-          icon: Icon(Icons.menu, color: AppColor.defaultBlack.of(context)),
-        ),
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationSettingsPage(),
+                ),
+              );
+            },
+            icon: Icon(
+              Icons.settings,
+              color: AppColor.defaultBlack.of(context),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child:

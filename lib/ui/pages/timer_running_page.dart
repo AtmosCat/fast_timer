@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:fast_timer/data/model/timer_record.dart';
 import 'package:fast_timer/data/viewmodel/timer_item_viewmodel.dart';
+import 'package:fast_timer/ui/pages/notification_settings_page.dart';
 import 'package:fast_timer/ui/utils/snackbar_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -545,29 +546,32 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // 1. 알림 발송
+      // 1. 알림 발송 (설정이 켜져 있을 때만)
       if (!_isResetting &&
           remaining <= 0 &&
           !notificationSentTimerIds.contains(timer.id)) {
-        setState(() {
-          notificationSentTimerIds.add(timer.id!);
-        });
-        await flutterLocalNotificationsPlugin.show(
-          timer.id!,
-          timer.name,
-          '타이머가 종료되었습니다!',
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'timer_channel',
-              '타이머',
-              channelDescription: '타이머 알림',
-              importance: Importance.max,
-              priority: Priority.high,
+        final enabled = await NotificationSettings.getNotificationEnabled();
+        if (enabled) {
+          setState(() {
+            notificationSentTimerIds.add(timer.id!);
+          });
+          await flutterLocalNotificationsPlugin.show(
+            timer.id!,
+            timer.name,
+            '타이머가 종료되었습니다!',
+            const NotificationDetails(
+              android: AndroidNotificationDetails(
+                'timer_channel',
+                '타이머',
+                channelDescription: '타이머 알림',
+                importance: Importance.max,
+                priority: Priority.high,
+              ),
+              iOS: DarwinNotificationDetails(),
             ),
-            iOS: DarwinNotificationDetails(),
-          ),
-          payload: timer.id!.toString(),
-        );
+            payload: timer.id!.toString(),
+          );
+        }
       }
 
       // 2. 타이머가 0초 이하였다가 0초 이상이 된 경우 Set에서 id 제거
