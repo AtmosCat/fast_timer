@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fast_timer/data/repository/sql_database.dart';
+import 'package:fast_timer/firebase_options.dart';
 import 'package:fast_timer/theme/colors.dart';
 import 'package:fast_timer/theme/theme.dart';
 import 'package:fast_timer/ui/pages/timer_list_page.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,14 +18,19 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 // --- navigatorKey는 알림 클릭 시 라우팅에 반드시 필요 ---
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 
 final Set<int> notificationSentTimerIds = {};
 
 Future<void> initNotification() async {
-  const AndroidInitializationSettings androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const AndroidInitializationSettings androidInit =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
   const DarwinInitializationSettings iosInit = DarwinInitializationSettings();
-  final InitializationSettings initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
+  final InitializationSettings initSettings = InitializationSettings(
+    android: androidInit,
+    iOS: iosInit,
+  );
 
   await flutterLocalNotificationsPlugin.initialize(
     initSettings,
@@ -45,11 +52,11 @@ Future<void> initNotification() async {
 
   // iOS 권한 요청
   await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+      .resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin
+      >()
       ?.requestPermissions(alert: true, badge: true, sound: true);
 }
-
-
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,6 +66,9 @@ void main() async {
 
   // 알림 초기화
   await initNotification();
+
+  // 파이어베이스 세팅
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // 시스템 UI 세팅
   SystemChrome.setSystemUIOverlayStyle(

@@ -792,8 +792,6 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                     endedAt: DateTime.now(),
                                   ),
                                 );
-                                SnackbarUtil.showToastMessage('기록이 저장되었습니다!');
-
                                 // 전면 광고 띄우고, 광고 닫힌 뒤에만 화면 이동
                                 await showInterstitialAd(context, () {
                                   if (mounted) {
@@ -805,6 +803,12 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                     );
                                   }
                                 });
+                                SnackbarUtil.showToastMessage('기록이 저장되었습니다!');
+                                await ref
+                                    .read(
+                                      timerItemListViewModelProvider.notifier,
+                                    )
+                                    .resetTimer(widget.timerId);
                               } else if (result == 'delete') {
                                 SnackbarUtil.showToastMessage(
                                   '기록을 저장하지 않고 초기화되었습니다.',
@@ -900,8 +904,8 @@ class _TimerRunningPageState extends ConsumerState<TimerRunningPage> {
                                     endedAt: DateTime.now(),
                                   ),
                                 );
-                                SnackbarUtil.showToastMessage('기록이 저장되었습니다!');
 
+                                SnackbarUtil.showToastMessage('기록이 저장되었습니다!');
                                 // 전면 광고 띄우고, 광고 닫힌 뒤에만 화면 이동
                                 await showInterstitialAd(context, () {
                                   if (mounted) {

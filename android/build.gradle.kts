@@ -10,7 +10,6 @@ allprojects {
     }
 }
 
-// Flutter의 빌드 디렉토리 커스텀 설정
 val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
 rootProject.layout.buildDirectory.value(newBuildDir)
 

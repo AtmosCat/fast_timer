@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "10159643565",
+    "project_id": "fast-timer-48e99",
+    "storage_bucket": "fast-timer-48e99.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:10159643565:android:5ea35b1049f1fb4bc95f24",
+        "android_client_info": {
+          "package_name": "com.middlenamestudio.fast_timer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyComz2sdDIzu8uukQgAy5tihLO7yPkP2HM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
